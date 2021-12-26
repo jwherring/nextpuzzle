@@ -33,7 +33,7 @@ void touch_dbfile() {
 
 }
 
-void create_table(sqlite3* dbc) {
+void create_tables(sqlite3* dbc) {
   char * error_message = 0;
   int rc;
   rc = sqlite3_exec(dbc, create_puzzles_table, NULL, NULL, &error_message);
@@ -52,7 +52,7 @@ sqlite3* get_db_conn() {
   }
   sqlite3_open(dbfh, &dbc);
   if (!db_exists){ //create table if file wasnt there
-    create_table(dbc);
+    create_tables(dbc);
   }
   return dbc;
 
