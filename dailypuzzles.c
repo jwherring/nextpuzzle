@@ -15,9 +15,6 @@ char const *create_score_table = "create table score (id int primary key, puzzle
 char const *dtformat = "%F";
 mode_t fullmode = S_IRWXU|S_IRWXG|S_IRWXO;
 
-void create_database() {
-}
-
 int database_file_exists() {
   return access(dbfh, R_OK|W_OK|X_OK) == 0;
 }
@@ -81,6 +78,8 @@ sqlite3* get_db_conn() {
 
 }
 
+/*Fibonacci implementation starting at 1, so we get 1, 1, 2, 3, 5 ... instead
+ * of 0, 1, 1, 2, 3, 5...*/
 int fibonacci1(int seed) {
 
   int a,b;
@@ -105,17 +104,6 @@ struct tm* get_current_time() {
 
 }
 
-char* get_today() {
-
-  struct tm * lcltm = get_current_time(); // Why doesn't this show the memory leak warning?
-  char * repr = malloc(sizeof(char) * 11);
-
-  strftime(repr, 11, dtformat, lcltm);
-
-  return repr;
-
-}
-
 char* get_target_day(int offset) {
 
   struct tm * lcltm = get_current_time();
@@ -127,6 +115,12 @@ char* get_target_day(int offset) {
   strftime(repr, 11, dtformat, lcltm);
 
   return repr;
+}
+
+char* get_today() {
+
+  return get_target_day(0);
+
 }
 
 int main() {
