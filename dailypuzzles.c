@@ -17,12 +17,14 @@ char const *insert_result_statement = "insert into results (puzzle_id, date, res
 char const *update_puzzle_statement = "update puzzles set score=:score, next_test_date=:next_test_date where puzzle_id=:puzzle_id";
 char const *get_next_test_statement = "select puzzle_id from puzzles where next_test_date=:next_test_date";
 char const *get_score_for_puzzle_statement = "select score from puzzles where puzzle_id=:puzzle_id";
+char const *get_overall_failure_success_rate_statement = "select sum(case when result=\"f\" then 1.0 else 0.0 end)/count(*) * 100 as failure_rate, sum(case when result=\"s\" then 1.0 else 0.0 end)/count(*) * 100 as success_rate from results";
 char const *dtformat = "%F";
 char const *useage = 
   "Useage dailypuzzles <command>\n"
   "COMMAND\n"
-  " if command is \"next\" prints the next puzzle for the day, if available\n"
-  " if command is not \"next\" it should be a puzzle number followed by the character 's' or 'f' indicating success or failure\n";
+  " \"next\" -- prints the next puzzle for the day, if available\n"
+  " \"stats\" -- prints the overall success and failure rates\n"
+  " if command is none of these it should be a puzzle number followed by the character 's' or 'f' indicating success or failure\n";
 
 mode_t fullmode = S_IRWXU|S_IRWXG|S_IRWXO;
 
@@ -321,6 +323,31 @@ void update_puzzle(char * puzzle_id, char * success_arg) {
 
 }
 
+void get_stats() {
+
+  sqlite3 * dbc = get_db_conn();
+  sqlite3_stmt * fail_success_rate_stmt;
+
+  double failure_rate, success_rate;
+
+  sqlite3_prepare_v2(dbc, get_overall_failure_success_rate_statement, strlen(get_overall_failure_success_rate_statement), &fail_success_rate_stmt,NULL);
+
+  int result = sqlite3_step(fail_success_rate_stmt);
+
+  if(result != SQLITE_ROW) {
+    printf("ERROR getting next test: %s\n", sqlite3_errmsg(dbc));
+    return;
+  }
+
+  failure_rate = sqlite3_column_double(fail_success_rate_stmt, 0);
+  success_rate = sqlite3_column_double(fail_success_rate_stmt, 1);
+
+  printf("FAIL: %.2f\nSUCCESS: %.2f\n", failure_rate, success_rate);
+
+  sqlite3_close(dbc);
+
+}
+
 int main(int argc, char** argv) {
 
   char * command_arg;
@@ -334,12 +361,19 @@ int main(int argc, char** argv) {
 
   if(argc == 2) {
 
-    if(strcmp(command_arg, "next") != 0){
-      print_useage();
+    if(strcmp(command_arg, "next") == 0){
+      get_next();
       return 0;
     } 
-    get_next();
+
+    if(strcmp(command_arg, "stats") == 0){
+      get_stats();
+      return 0;
+    }
+
+    print_useage();
     return 0;
+
   }
 
   success_arg = argv[2];
