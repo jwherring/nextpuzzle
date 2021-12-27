@@ -9,9 +9,11 @@
 #include <time.h>
 
 char const *dbfh = "dailypuzzles.sqlite";
-char const *create_puzzles_table = "create table puzzles (id int primary key, puzzle text not null)";
-char const *create_results_table = "create table results (id int primary key, puzzle text not null, date text not null, result integer default 0)";
-char const *create_score_table = "create table score (id int primary key, puzzle text not null, score integer default 0)";
+char const *create_puzzles_table = "create table puzzles (id integer primary key autoincrement, puzzle_id text not null, score integer default 0, next_test_date text not null)";
+char const *create_results_table = "create table results (id integer primary key autoincrement, puzzle_id text not null, date text not null, result text not null)";
+char const *puzzle_exists_statement = "select 1 from puzzles where puzzle_id=:puzzleid";
+char const *insert_puzzle_statement = "insert into puzzles (puzzle_id, score, next_test_date) values (:puzzle_id, :score, :next_test_date)";
+char const *insert_result_statement = "insert into results (puzzle_id, date, result) values (:puzzle_id, :date, :result)";
 char const *dtformat = "%F";
 char const *useage = 
   "Useage dailypuzzles <command>\n"
@@ -51,13 +53,7 @@ void create_tables(sqlite3* dbc) {
     return;
   }
 
-  rc = sqlite3_exec(dbc, create_puzzles_table, NULL, NULL, &error_message);
-  if (error_message != 0) {
-    printf("%s\n", error_message);
-    return;
-  }
-
-  rc = sqlite3_exec(dbc, create_puzzles_table, NULL, NULL, &error_message);
+  rc = sqlite3_exec(dbc, create_results_table, NULL, NULL, &error_message);
   if (error_message != 0) {
     printf("%s\n", error_message);
     return;
@@ -141,7 +137,64 @@ int check_success_arg(char * success_arg) {
   return strcmp(success_arg, "f") == 0 || strcmp(success_arg, "s") == 0;
 }
 
-void update_puzzle(char * command_arg, char * success_arg) {
+int check_puzzle_exists(sqlite3* dbc, char * puzzle_id) {
+  sqlite3_stmt * stmt;
+  sqlite3_prepare_v2(dbc, puzzle_exists_statement, 50, &stmt, NULL);
+  sqlite3_bind_text(stmt,1,puzzle_id,strlen(puzzle_id),NULL);
+  int result = sqlite3_step(stmt);
+  return result == SQLITE_ROW;
+}
+
+void update_existing_puzzle(sqlite3* dbc, char * puzzle_id, char * success_arg) {
+}
+
+void create_new_puzzle_entry(sqlite3* dbc, char * puzzle_id, char * success_arg) {
+
+  sqlite3_stmt * insert_puzzle_stmt;
+  sqlite3_stmt * insert_result_stmt;
+
+  char * next_test_day = get_target_day(1);
+  char * today = get_today();
+
+  sqlite3_prepare_v2(dbc, insert_puzzle_statement, strlen(insert_puzzle_statement) + 20, &insert_puzzle_stmt, NULL);
+  sqlite3_prepare_v2(dbc, insert_result_statement, strlen(insert_result_statement) + 20, &insert_result_stmt, NULL);
+
+  sqlite3_bind_text(insert_puzzle_stmt,1,puzzle_id,strlen(puzzle_id),NULL);
+  sqlite3_bind_int(insert_puzzle_stmt,2,0);
+  sqlite3_bind_text(insert_puzzle_stmt,3,next_test_day,strlen(next_test_day),NULL);
+
+  sqlite3_bind_text(insert_result_stmt,1,puzzle_id,strlen(puzzle_id),NULL);
+  sqlite3_bind_text(insert_result_stmt,2,today,strlen(today),NULL);
+  sqlite3_bind_text(insert_result_stmt,3,success_arg,strlen(success_arg),NULL);
+
+  int result = sqlite3_step(insert_puzzle_stmt);
+  if(result == SQLITE_ERROR || result != SQLITE_DONE){
+    printf("ERROR inserting new puzzle: %s\n", sqlite3_errmsg(dbc));
+  }
+  sqlite3_finalize(insert_puzzle_stmt);
+
+
+  result = sqlite3_step(insert_result_stmt);
+  if(result == SQLITE_ERROR || result != SQLITE_DONE){
+    printf("ERROR inserting new puzzle result: %s\n", sqlite3_errmsg(dbc));
+  }
+  sqlite3_finalize(insert_result_stmt);
+
+}
+
+void update_puzzle(char * puzzle_id, char * success_arg) {
+
+  sqlite3* dbc = get_db_conn();
+
+  int exists = check_puzzle_exists(dbc, puzzle_id);
+  if(exists){
+    update_existing_puzzle(dbc, puzzle_id, success_arg);
+  } else {
+    create_new_puzzle_entry(dbc, puzzle_id, success_arg);
+  }
+
+  sqlite3_close(dbc);
+
 }
 
 int main(int argc, char** argv) {
@@ -173,9 +226,6 @@ int main(int argc, char** argv) {
   }
 
   update_puzzle(command_arg, success_arg);
-
-  sqlite3* dbc = get_db_conn();
-  sqlite3_close(dbc);
 
 
   return 0;
