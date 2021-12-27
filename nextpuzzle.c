@@ -395,6 +395,15 @@ void get_stats() {
 
 }
 
+void mark_current_puzzle(char * success_arg) {
+
+  sqlite3 * dbc = get_db_conn();
+  char * puzzle_id = current_puzzle(dbc);
+  update_existing_puzzle(dbc, puzzle_id, success_arg);
+  sqlite3_close(dbc);
+
+}
+
 int main(int argc, char** argv) {
 
   char * command_arg;
@@ -415,6 +424,12 @@ int main(int argc, char** argv) {
 
     if(strcmp(command_arg, "stats") == 0){
       get_stats();
+      return 0;
+    }
+
+    //Single argument is s or f, so update the current test
+    if(check_success_arg(command_arg)){
+      mark_current_puzzle(command_arg);
       return 0;
     }
 
