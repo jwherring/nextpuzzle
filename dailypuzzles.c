@@ -14,6 +14,9 @@ char const *create_results_table = "create table results (id integer primary key
 char const *puzzle_exists_statement = "select 1 from puzzles where puzzle_id=:puzzleid";
 char const *insert_puzzle_statement = "insert into puzzles (puzzle_id, score, next_test_date) values (:puzzle_id, :score, :next_test_date)";
 char const *insert_result_statement = "insert into results (puzzle_id, date, result) values (:puzzle_id, :date, :result)";
+char const *update_puzzle_statement = "update puzzles set score=:score, next_test_date=:next_test_date where puzzle_id=:puzzle_id";
+char const *get_next_test_statement = "select puzzle_id from puzzles where next_test_date=:next_test_date";
+char const *get_score_for_puzzle_statement = "select score from puzzles where puzzle_id=:puzzle_id";
 char const *dtformat = "%F";
 char const *useage = 
   "Useage dailypuzzles <command>\n"
@@ -130,11 +133,50 @@ void print_useage() {
 }
 
 void get_next() {
-  printf("GET NEXT\n");
+
+  sqlite3_stmt * next_test_stmt;
+  sqlite3 * dbc = get_db_conn();
+  char * today = get_today();
+
+  sqlite3_prepare_v2(dbc, get_next_test_statement, strlen(get_next_test_statement) + 50, &next_test_stmt, NULL);
+
+  sqlite3_bind_text(next_test_stmt,1,today,strlen(today),NULL);
+
+  int result = sqlite3_step(next_test_stmt);
+
+  if(result == SQLITE_ERROR){
+    printf("ERROR getting next test: %s\n", sqlite3_errmsg(dbc));
+    return;
+  }
+
+  if(result == SQLITE_ROW) {
+    const unsigned char* next_test_id = sqlite3_column_text(next_test_stmt,0);
+
+    printf("https://www.chess.com/puzzles/problem/%s\n", next_test_id);
+    sqlite3_finalize(next_test_stmt);
+    return;
+  }
+
+  if(result == SQLITE_DONE){
+    puts("No more tests today!!!");
+    sqlite3_finalize(next_test_stmt);
+    return;
+  }
+
+  sqlite3_finalize(next_test_stmt);
+
+}
+
+int is_fail(char * success_arg) {
+  return strcmp(success_arg, "f") == 0;
+}
+
+int is_pass(char * success_arg) {
+  return strcmp(success_arg, "s") == 0;
 }
 
 int check_success_arg(char * success_arg) {
-  return strcmp(success_arg, "f") == 0 || strcmp(success_arg, "s") == 0;
+  return is_fail(success_arg) || is_pass(success_arg);
 }
 
 int check_puzzle_exists(sqlite3* dbc, char * puzzle_id) {
@@ -145,27 +187,114 @@ int check_puzzle_exists(sqlite3* dbc, char * puzzle_id) {
   return result == SQLITE_ROW;
 }
 
+void reset_puzzle_for_failure(sqlite3* dbc, char * puzzle_id) {
+
+  sqlite3_stmt * update_puzzle_stmt;
+
+  char * next_test_day = get_target_day(1);
+
+  sqlite3_prepare_v2(dbc, update_puzzle_statement, strlen(update_puzzle_statement) + 20, &update_puzzle_stmt, NULL);
+
+  sqlite3_bind_int(update_puzzle_stmt,1,0);
+  sqlite3_bind_text(update_puzzle_stmt,2,next_test_day,strlen(next_test_day),NULL);
+  sqlite3_bind_text(update_puzzle_stmt,3,puzzle_id,strlen(puzzle_id),NULL);
+
+  int result = sqlite3_step(update_puzzle_stmt);
+  if(result == SQLITE_ERROR || result != SQLITE_DONE){
+    printf("ERROR resetting puzzle for failure: %s\n", sqlite3_errmsg(dbc));
+  }
+
+  sqlite3_finalize(update_puzzle_stmt);
+
+}
+
+int get_score_for_puzzle(sqlite3 * dbc, char * puzzle_id){
+
+  sqlite3_stmt * get_score_stmt;
+  int score = 0;
+
+  sqlite3_prepare_v2(dbc, get_score_for_puzzle_statement,strlen(get_score_for_puzzle_statement) + 20, &get_score_stmt, NULL);
+
+  sqlite3_bind_text(get_score_stmt, 1, puzzle_id, strlen(puzzle_id),NULL);
+
+  int result = sqlite3_step(get_score_stmt);
+  if(result == SQLITE_ERROR || result != SQLITE_ROW){
+    printf("ERROR getting score for puzzle: %s\n", sqlite3_errmsg(dbc));
+    sqlite3_finalize(get_score_stmt);
+    return score;
+  }
+
+  score = sqlite3_column_int(get_score_stmt, 0);
+
+  sqlite3_finalize(get_score_stmt);
+
+  return score;
+  
+}
+
+void advance_puzzle_on_success(sqlite3* dbc, char * puzzle_id) {
+
+  sqlite3_stmt * update_puzzle_stmt;
+  int current_score = get_score_for_puzzle(dbc, puzzle_id) + 1;
+  int day_offset = fibonacci1(current_score);
+  char * next_test_day = get_target_day(day_offset);
+
+  sqlite3_prepare_v2(dbc, update_puzzle_statement, strlen(update_puzzle_statement) + 20, &update_puzzle_stmt, NULL);
+
+  sqlite3_bind_int(update_puzzle_stmt,1,current_score);
+  sqlite3_bind_text(update_puzzle_stmt,2,next_test_day,strlen(next_test_day),NULL);
+  sqlite3_bind_text(update_puzzle_stmt,3,puzzle_id,strlen(puzzle_id),NULL);
+
+  int result = sqlite3_step(update_puzzle_stmt);
+  if(result == SQLITE_ERROR || result != SQLITE_DONE){
+    printf("ERROR updating puzzle for success: %s\n", sqlite3_errmsg(dbc));
+  }
+
+  sqlite3_finalize(update_puzzle_stmt);
+
+}
+
+void log_result(sqlite3 *dbc, char * puzzle_id, char * success_arg) {
+
+  sqlite3_stmt * insert_result_stmt;
+  char * today = get_today();
+
+  sqlite3_prepare_v2(dbc, insert_result_statement, strlen(insert_result_statement) + 20, &insert_result_stmt, NULL);
+
+  sqlite3_bind_text(insert_result_stmt,1,puzzle_id,strlen(puzzle_id),NULL);
+  sqlite3_bind_text(insert_result_stmt,2,today,strlen(today),NULL);
+  sqlite3_bind_text(insert_result_stmt,3,success_arg,strlen(success_arg),NULL);
+
+  int result = sqlite3_step(insert_result_stmt);
+  if(result == SQLITE_ERROR || result != SQLITE_DONE){
+    printf("ERROR inserting new puzzle result: %s\n", sqlite3_errmsg(dbc));
+  }
+  sqlite3_finalize(insert_result_stmt);
+}
+
 void update_existing_puzzle(sqlite3* dbc, char * puzzle_id, char * success_arg) {
+
+  if(is_fail(success_arg)){
+    reset_puzzle_for_failure(dbc, puzzle_id);
+  } else {
+    advance_puzzle_on_success(dbc, puzzle_id);
+  } 
+
+  log_result(dbc, puzzle_id, success_arg);
+
 }
 
 void create_new_puzzle_entry(sqlite3* dbc, char * puzzle_id, char * success_arg) {
 
   sqlite3_stmt * insert_puzzle_stmt;
-  sqlite3_stmt * insert_result_stmt;
 
   char * next_test_day = get_target_day(1);
-  char * today = get_today();
 
   sqlite3_prepare_v2(dbc, insert_puzzle_statement, strlen(insert_puzzle_statement) + 20, &insert_puzzle_stmt, NULL);
-  sqlite3_prepare_v2(dbc, insert_result_statement, strlen(insert_result_statement) + 20, &insert_result_stmt, NULL);
 
   sqlite3_bind_text(insert_puzzle_stmt,1,puzzle_id,strlen(puzzle_id),NULL);
   sqlite3_bind_int(insert_puzzle_stmt,2,0);
   sqlite3_bind_text(insert_puzzle_stmt,3,next_test_day,strlen(next_test_day),NULL);
-
-  sqlite3_bind_text(insert_result_stmt,1,puzzle_id,strlen(puzzle_id),NULL);
-  sqlite3_bind_text(insert_result_stmt,2,today,strlen(today),NULL);
-  sqlite3_bind_text(insert_result_stmt,3,success_arg,strlen(success_arg),NULL);
 
   int result = sqlite3_step(insert_puzzle_stmt);
   if(result == SQLITE_ERROR || result != SQLITE_DONE){
@@ -173,12 +302,7 @@ void create_new_puzzle_entry(sqlite3* dbc, char * puzzle_id, char * success_arg)
   }
   sqlite3_finalize(insert_puzzle_stmt);
 
-
-  result = sqlite3_step(insert_result_stmt);
-  if(result == SQLITE_ERROR || result != SQLITE_DONE){
-    printf("ERROR inserting new puzzle result: %s\n", sqlite3_errmsg(dbc));
-  }
-  sqlite3_finalize(insert_result_stmt);
+  log_result(dbc, puzzle_id, success_arg);
 
 }
 
