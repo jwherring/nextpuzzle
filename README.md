@@ -15,6 +15,12 @@ The same puzzle worked successfully on 2023-01-06 will have score 4 and will nee
 
 The same puzzle failed on 2023-01-11 will have score 0 and will need to be worked again on 2023-01-12, since fibonacci(0) is 1 and 1 days from 2023-01-11 is 2023-01-12.
 
+## Build
+
+This script depends on sqlite3.  To compile this you will need `sqlite3` and `libsqlite3-dev` (or platform equivalent) installed.
+
+Otherwise build is simple - just use your favorite C compiler and link `libsqlite3-dev`.  A Makefile (which assumes gcc) is provided for convenience.
+
 ## CLI
 
 `nextpuzzle` is a cli that accepts the following commands, some of which require a parameter:
