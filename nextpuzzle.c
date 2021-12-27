@@ -161,10 +161,9 @@ int get_total_tests_for_day(sqlite3 *dbc, char * day) {
 
 }
 
-void get_next() {
+char * current_puzzle(sqlite3* dbc) {
 
   sqlite3_stmt * next_test_stmt;
-  sqlite3 * dbc = get_db_conn();
   char * today = get_today();
 
   sqlite3_prepare_v2(dbc, get_next_test_statement, strlen(get_next_test_statement) + 50, &next_test_stmt, NULL);
@@ -175,27 +174,45 @@ void get_next() {
 
   if(result == SQLITE_ERROR){
     printf("ERROR getting next test: %s\n", sqlite3_errmsg(dbc));
-    return;
+    return "";
   }
 
   if(result == SQLITE_ROW) {
     const unsigned char* next_test_id = sqlite3_column_text(next_test_stmt,0);
-    int tests_remaining = get_total_tests_for_day(dbc, today);
+
+
+    char * retval;
+    strcpy(retval, next_test_id);
+    sqlite3_finalize(next_test_stmt);
+    return retval;
+  }
+
+  // There are no more tests, return empty string.  Shouldn't actually get here
+  // if you call get_total_tests_for_day and verify it's greater than 0 first
+  sqlite3_finalize(next_test_stmt);
+  return "";
+
+}
+
+void get_next() {
+
+  sqlite3 * dbc = get_db_conn();
+  char * today = get_today();
+  int tests_remaining = get_total_tests_for_day(dbc, today);
+
+  if(tests_remaining > 0){
+    char * next_test_id = current_puzzle(dbc);
+    if(strlen(next_test_id) == 0){
+      printf("No more tests today!!!");
+      return;
+    }
 
     printf("https://www.chess.com/puzzles/problem/%s\n", next_test_id);
     printf("REMAINING: %d\n", tests_remaining - 1);
 
-    sqlite3_finalize(next_test_stmt);
     return;
-  }
 
-  if(result == SQLITE_DONE){
-    puts("No more tests today!!!");
-    sqlite3_finalize(next_test_stmt);
-    return;
-  }
-
-  sqlite3_finalize(next_test_stmt);
+  } 
 
 }
 
