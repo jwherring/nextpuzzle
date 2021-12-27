@@ -135,6 +135,31 @@ void print_useage() {
   puts(useage);
 }
 
+char * get_stats(sqlite3* dbc) {
+
+  sqlite3_stmt * fail_success_rate_stmt;
+
+  double failure_rate, success_rate;
+
+  sqlite3_prepare_v2(dbc, get_overall_failure_success_rate_statement, strlen(get_overall_failure_success_rate_statement), &fail_success_rate_stmt,NULL);
+
+  int result = sqlite3_step(fail_success_rate_stmt);
+
+  if(result != SQLITE_ROW) {
+    printf("ERROR getting stats: %s\n", sqlite3_errmsg(dbc));
+    return "";
+  }
+
+  failure_rate = sqlite3_column_double(fail_success_rate_stmt, 0);
+  success_rate = sqlite3_column_double(fail_success_rate_stmt, 1);
+
+
+  char * buffer = malloc(sizeof(char) * 50);
+  sprintf(buffer, "FAIL: %.2f\nSUCCESS: %.2f\n", failure_rate, success_rate);
+  return buffer;
+
+}
+
 int get_total_tests_for_day(sqlite3 *dbc, char * day) {
 
   sqlite3_stmt * total_test_stmt;
@@ -207,12 +232,18 @@ void get_next() {
       return;
     }
 
+    char * stats = get_stats(dbc);
     printf("https://www.chess.com/puzzles/problem/%s\n", next_test_id);
     printf("REMAINING: %d\n", tests_remaining - 1);
+    puts(stats);
+    free(stats);
 
     return;
 
-  } 
+  } else {
+    printf("No more tests today!!!\n");
+    return;
+  }
 
 }
 
@@ -325,8 +356,16 @@ void update_existing_puzzle(sqlite3* dbc, char * puzzle_id, char * success_arg) 
 
   if(is_fail(success_arg)){
     reset_puzzle_for_failure(dbc, puzzle_id);
+    printf("Puzzle %s reset for failure\n", puzzle_id);
+    char * stats = get_stats(dbc);
+    puts(stats);
+    free(stats);
   } else {
     advance_puzzle_on_success(dbc, puzzle_id);
+    printf("Puzzle %s incremented for success\n", puzzle_id);
+    char * stats = get_stats(dbc);
+    puts(stats);
+    free(stats);
   } 
 
   log_result(dbc, puzzle_id, success_arg);
@@ -370,27 +409,13 @@ void update_puzzle(char * puzzle_id, char * success_arg) {
 
 }
 
-void get_stats() {
+void show_stats() {
 
   sqlite3 * dbc = get_db_conn();
-  sqlite3_stmt * fail_success_rate_stmt;
 
-  double failure_rate, success_rate;
-
-  sqlite3_prepare_v2(dbc, get_overall_failure_success_rate_statement, strlen(get_overall_failure_success_rate_statement), &fail_success_rate_stmt,NULL);
-
-  int result = sqlite3_step(fail_success_rate_stmt);
-
-  if(result != SQLITE_ROW) {
-    printf("ERROR getting stats: %s\n", sqlite3_errmsg(dbc));
-    return;
-  }
-
-  failure_rate = sqlite3_column_double(fail_success_rate_stmt, 0);
-  success_rate = sqlite3_column_double(fail_success_rate_stmt, 1);
-
-  printf("FAIL: %.2f\nSUCCESS: %.2f\n", failure_rate, success_rate);
-
+  char * stats = get_stats(dbc);
+  puts(stats);
+  free(stats);
   sqlite3_close(dbc);
 
 }
@@ -423,7 +448,7 @@ int main(int argc, char** argv) {
     } 
 
     if(strcmp(command_arg, "stats") == 0){
-      get_stats();
+      show_stats();
       return 0;
     }
 
