@@ -15,7 +15,8 @@ char const *puzzle_exists_statement = "select 1 from puzzles where puzzle_id=:pu
 char const *insert_puzzle_statement = "insert into puzzles (puzzle_id, score, next_test_date) values (:puzzle_id, :score, :next_test_date)";
 char const *insert_result_statement = "insert into results (puzzle_id, date, result) values (:puzzle_id, :date, :result)";
 char const *update_puzzle_statement = "update puzzles set score=:score, next_test_date=:next_test_date where puzzle_id=:puzzle_id";
-char const *get_next_test_statement = "select puzzle_id from puzzles where next_test_date=:next_test_date";
+char const *get_next_test_statement = "select puzzle_id from puzzles where next_test_date<=:next_test_date";
+char const *get_total_remaining_tests_statement = "select count(*) from puzzles where next_test_date<=:next_test_date";
 char const *get_score_for_puzzle_statement = "select score from puzzles where puzzle_id=:puzzle_id";
 char const *get_overall_failure_success_rate_statement = "select sum(case when result=\"f\" then 1.0 else 0.0 end)/count(*) * 100 as failure_rate, sum(case when result=\"s\" then 1.0 else 0.0 end)/count(*) * 100 as success_rate from results";
 char const *dtformat = "%F";
@@ -134,6 +135,32 @@ void print_useage() {
   puts(useage);
 }
 
+int get_total_tests_for_day(sqlite3 *dbc, char * day) {
+
+  sqlite3_stmt * total_test_stmt;
+
+  sqlite3_prepare_v2(dbc, get_total_remaining_tests_statement, strlen(get_total_remaining_tests_statement), &total_test_stmt, NULL);
+
+  sqlite3_bind_text(total_test_stmt,1,day,strlen(day),NULL);
+
+  int result = sqlite3_step(total_test_stmt);
+
+  if(result == SQLITE_ERROR){
+    printf("ERROR getting test count: %s\n", sqlite3_errmsg(dbc));
+    return 0;
+  }
+
+  if(result == SQLITE_ROW){
+    int total_tests = sqlite3_column_int(total_test_stmt, 0);
+    return total_tests;
+  }
+
+  printf("ERROR getting test count\n");
+
+  return 0;
+
+}
+
 void get_next() {
 
   sqlite3_stmt * next_test_stmt;
@@ -153,8 +180,11 @@ void get_next() {
 
   if(result == SQLITE_ROW) {
     const unsigned char* next_test_id = sqlite3_column_text(next_test_stmt,0);
+    int tests_remaining = get_total_tests_for_day(dbc, today);
 
     printf("https://www.chess.com/puzzles/problem/%s\n", next_test_id);
+    printf("REMAINING: %d\n", tests_remaining - 1);
+
     sqlite3_finalize(next_test_stmt);
     return;
   }
@@ -335,7 +365,7 @@ void get_stats() {
   int result = sqlite3_step(fail_success_rate_stmt);
 
   if(result != SQLITE_ROW) {
-    printf("ERROR getting next test: %s\n", sqlite3_errmsg(dbc));
+    printf("ERROR getting stats: %s\n", sqlite3_errmsg(dbc));
     return;
   }
 
