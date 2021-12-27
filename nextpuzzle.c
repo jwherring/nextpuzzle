@@ -429,6 +429,21 @@ void mark_current_puzzle(char * success_arg) {
 
 }
 
+char * get_puzzle_id(char * command_arg){
+
+  char * buffer = malloc(sizeof(char) * 50);
+  int i = 0;
+  char * nums = "0123456789";
+  char * pch = strpbrk(command_arg, nums);
+  while(pch != NULL){
+    buffer[i] = *pch;
+    i++;
+    pch = strpbrk(pch+1, nums);
+  }
+  buffer[i] = '\0';
+  return buffer;
+}
+
 int main(int argc, char** argv) {
 
   char * command_arg;
@@ -470,8 +485,9 @@ int main(int argc, char** argv) {
     return 0;
   }
 
-  update_puzzle(command_arg, success_arg);
-
+  char * puzzle_id = get_puzzle_id(command_arg);
+  update_puzzle(puzzle_id, success_arg);
+  free(puzzle_id);
 
   return 0;
 
