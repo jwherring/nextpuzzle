@@ -199,6 +199,7 @@ char * current_puzzle(sqlite3* dbc) {
 
   if(result == SQLITE_ERROR){
     printf("ERROR getting next test: %s\n", sqlite3_errmsg(dbc));
+    free(today);
     return "";
   }
 
@@ -209,12 +210,14 @@ char * current_puzzle(sqlite3* dbc) {
     char * retval;
     strcpy(retval, next_test_id);
     sqlite3_finalize(next_test_stmt);
+    free(today);
     return retval;
   }
 
   // There are no more tests, return empty string.  Shouldn't actually get here
   // if you call get_total_tests_for_day and verify it's greater than 0 first
   sqlite3_finalize(next_test_stmt);
+  free(today);
   return "";
 
 }
@@ -229,6 +232,7 @@ void get_next() {
     char * next_test_id = current_puzzle(dbc);
     if(strlen(next_test_id) == 0){
       printf("No more tests today!!!");
+      free(today);
       return;
     }
 
@@ -237,11 +241,13 @@ void get_next() {
     printf("REMAINING: %d\n", tests_remaining - 1);
     puts(stats);
     free(stats);
+    free(today);
 
     return;
 
   } else {
     printf("No more tests today!!!\n");
+    free(today);
     return;
   }
 
@@ -285,6 +291,7 @@ void reset_puzzle_for_failure(sqlite3* dbc, char * puzzle_id) {
   }
 
   sqlite3_finalize(update_puzzle_stmt);
+  free(next_test_day);
 
 }
 
@@ -331,6 +338,7 @@ void advance_puzzle_on_success(sqlite3* dbc, char * puzzle_id) {
   }
 
   sqlite3_finalize(update_puzzle_stmt);
+  free(next_test_day);
 
 }
 
@@ -350,6 +358,7 @@ void log_result(sqlite3 *dbc, char * puzzle_id, char * success_arg) {
     printf("ERROR inserting new puzzle result: %s\n", sqlite3_errmsg(dbc));
   }
   sqlite3_finalize(insert_result_stmt);
+  free(today);
 }
 
 void update_existing_puzzle(sqlite3* dbc, char * puzzle_id, char * success_arg) {
@@ -391,6 +400,7 @@ void create_new_puzzle_entry(sqlite3* dbc, char * puzzle_id, char * success_arg)
   sqlite3_finalize(insert_puzzle_stmt);
 
   log_result(dbc, puzzle_id, success_arg);
+  free(next_test_day);
 
 }
 
