@@ -24,9 +24,12 @@ char const *dtformat = "%F";
 char const *useage = 
   "Useage dailypuzzles <command>\n"
   "COMMAND\n"
+  " \"<no arg>\" -- prints the next puzzle for the day, if available\n"
+  " \"s\" -- marks the current puzzle for success\n"
+  " \"f\" -- marks the current puzzle for success\n"
   " \"next\" -- prints the next puzzle for the day, if available\n"
   " \"stats\" -- prints the overall success and failure rates\n"
-  " if command is none of these it should be a puzzle number followed by the character 's' or 'f' indicating success or failure\n";
+  " if command is none of these it should be a puzzle number (or url) followed by the character 's' or 'f' indicating success or failure\n";
 
 mode_t fullmode = S_IRWXU|S_IRWXG|S_IRWXO;
 
