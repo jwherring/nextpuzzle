@@ -19,6 +19,7 @@ char const *get_next_test_statement = "select puzzle_id from puzzles where next_
 char const *get_total_remaining_tests_statement = "select count(*) from puzzles where next_test_date<=:next_test_date";
 char const *get_score_for_puzzle_statement = "select score from puzzles where puzzle_id=:puzzle_id";
 char const *get_overall_failure_success_rate_statement = "select sum(case when result=\"f\" then 1.0 else 0.0 end)/count(*) * 100 as failure_rate, sum(case when result=\"s\" then 1.0 else 0.0 end)/count(*) * 100 as success_rate from results";
+char const *set_puzzle_date_statement = "update puzzles set next_test_date=:next_test_date where puzzle_id=:puzzle_id";
 char const *dtformat = "%F";
 char const *useage = 
   "Useage dailypuzzles <command>\n"
@@ -265,6 +266,10 @@ int check_success_arg(char * success_arg) {
   return is_fail(success_arg) || is_pass(success_arg);
 }
 
+int check_advance_arg(char * advance_arg) {
+  return strcmp(advance_arg, "a") == 0;
+}
+
 int check_puzzle_exists(sqlite3* dbc, char * puzzle_id) {
   sqlite3_stmt * stmt;
   sqlite3_prepare_v2(dbc, puzzle_exists_statement, 50, &stmt, NULL);
@@ -439,6 +444,35 @@ void mark_current_puzzle(char * success_arg) {
 
 }
 
+void set_puzzle_date(sqlite3 * dbc, char * puzzle_id, char * target_day) {
+
+  sqlite3_stmt * set_date_stmt;
+  sqlite3_prepare_v2(dbc, set_puzzle_date_statement, strlen(set_puzzle_date_statement)+50,&set_date_stmt,NULL);
+
+  sqlite3_bind_text(set_date_stmt,1,target_day,strlen(target_day),NULL);
+  sqlite3_bind_text(set_date_stmt,2,puzzle_id,strlen(puzzle_id),NULL);
+
+  int result = sqlite3_step(set_date_stmt);
+  if(result == SQLITE_ERROR || result != SQLITE_DONE){
+    printf("ERROR setting date to %s on puzzle  %s: %s\n", target_day, puzzle_id, sqlite3_errmsg(dbc));
+  }
+  sqlite3_finalize(set_date_stmt);
+
+
+  sqlite3_close(dbc);
+
+}
+
+void advance_current_puzzle(int days) {
+
+  sqlite3 * dbc = get_db_conn();
+  char * puzzle_id = current_puzzle(dbc);
+  char * target_day = get_target_day(days);
+  set_puzzle_date(dbc, puzzle_id, target_day);
+  free(target_day);
+
+}
+
 char * get_puzzle_id(char * command_arg){
 
   char * buffer = malloc(sizeof(char) * 50);
@@ -458,12 +492,17 @@ int main(int argc, char** argv) {
 
   char * command_arg;
   char * success_arg;
-  if(argc < 2 || argc > 3){
+  if(argc > 3){
     print_useage();
     return 0;
   }
 
   command_arg = argv[1];
+
+  if(argc == 1){
+    get_next();
+    return 0;
+  }
 
   if(argc == 2) {
 
@@ -480,6 +519,11 @@ int main(int argc, char** argv) {
     //Single argument is s or f, so update the current test
     if(check_success_arg(command_arg)){
       mark_current_puzzle(command_arg);
+      return 0;
+    }
+
+    if(check_advance_arg(command_arg)){
+      advance_current_puzzle(1);
       return 0;
     }
 
