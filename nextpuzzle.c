@@ -20,6 +20,11 @@ char const *get_total_remaining_tests_statement = "select count(*) from puzzles 
 char const *get_score_for_puzzle_statement = "select score from puzzles where puzzle_id=:puzzle_id";
 char const *get_overall_failure_success_rate_statement = "select sum(case when result=\"f\" then 1.0 else 0.0 end)/count(*) * 100 as failure_rate, sum(case when result=\"s\" then 1.0 else 0.0 end)/count(*) * 100 as success_rate from results";
 char const *set_puzzle_date_statement = "update puzzles set next_test_date=:next_test_date where puzzle_id=:puzzle_id";
+char const *delete_puzzle_from_puzzles_statement = "delete from puzzles where puzzle_id=:puzzle_id";
+char const *delete_puzzle_from_results_statement = "delete from results where puzzle_id=:puzzle_id";
+char const *begin_transaction_statement = "begin transacton";
+char const *commit_transaction_statement = "commit";
+char const *rollback_transaction_statememt = "rollback";
 char const *dtformat = "%F";
 char const *useage = 
   "Useage dailypuzzles <command>\n"
@@ -29,6 +34,7 @@ char const *useage =
   " \"f\" -- marks the current puzzle for success\n"
   " \"next\" -- prints the next puzzle for the day, if available\n"
   " \"stats\" -- prints the overall success and failure rates\n"
+  " \"delete <puzzle__id>\" -- removes all references to puzzle <puzzle_id> from the database\n"
   " if command is none of these it should be a puzzle number (or url) followed by the character 's' or 'f' indicating success or failure\n";
 
 mode_t fullmode = S_IRWXU|S_IRWXG|S_IRWXO;
@@ -491,6 +497,37 @@ char * get_puzzle_id(char * command_arg){
   return buffer;
 }
 
+void delete_puzzle(char * puzzle_id) {
+  sqlite3 * dbc = get_db_conn();
+  sqlite3_stmt * delete_puzzle_stmt;
+  sqlite3_stmt * delete_puzzle_results_stmt;
+  sqlite3_prepare_v2(dbc, delete_puzzle_from_puzzles_statement, strlen(delete_puzzle_from_puzzles_statement), &delete_puzzle_stmt, NULL);
+  sqlite3_prepare_v2(dbc, delete_puzzle_from_results_statement, strlen(delete_puzzle_from_results_statement), &delete_puzzle_results_stmt, NULL);
+
+  sqlite3_bind_text(delete_puzzle_stmt,1,puzzle_id,strlen(puzzle_id),NULL);
+  sqlite3_bind_text(delete_puzzle_results_stmt,1,puzzle_id,strlen(puzzle_id),NULL);
+
+
+  sqlite3_exec(dbc, begin_transaction_statement, NULL, NULL, NULL);
+  int result = sqlite3_step(delete_puzzle_stmt);
+  if(result == SQLITE_ERROR) {
+    printf("ERROR deleting puzzle: %s\n", sqlite3_errmsg(dbc));
+    sqlite3_exec(dbc, rollback_transaction_statememt, NULL, NULL, NULL);
+    return;
+  }
+
+  result = sqlite3_step(delete_puzzle_results_stmt);
+  if(result == SQLITE_ERROR) {
+    printf("ERROR deleting puzzle: %s\n", sqlite3_errmsg(dbc));
+    sqlite3_exec(dbc, rollback_transaction_statememt, NULL, NULL, NULL);
+    return;
+  }
+
+  sqlite3_exec(dbc, commit_transaction_statement, NULL, NULL, NULL);
+  sqlite3_close(dbc);
+
+}
+
 int main(int argc, char** argv) {
 
   char * command_arg;
@@ -536,6 +573,11 @@ int main(int argc, char** argv) {
   }
 
   success_arg = argv[2];
+
+  if(strcmp(command_arg, "delete") == 0){
+    delete_puzzle(success_arg);
+    return 0;
+  }
 
   if(!check_success_arg(success_arg)){
     print_useage();
