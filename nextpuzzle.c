@@ -162,6 +162,7 @@ char * get_stats(sqlite3* dbc) {
 
   failure_rate = sqlite3_column_double(fail_success_rate_stmt, 0);
   success_rate = sqlite3_column_double(fail_success_rate_stmt, 1);
+  sqlite3_finalize(fail_success_rate_stmt);
 
 
   char * buffer = malloc(sizeof(char) * 50);
@@ -379,19 +380,20 @@ void update_existing_puzzle(sqlite3* dbc, char * puzzle_id, char * success_arg) 
 
   if(is_fail(success_arg)){
     reset_puzzle_for_failure(dbc, puzzle_id);
+    log_result(dbc, puzzle_id, success_arg);
     printf("Puzzle %s reset for failure\n", puzzle_id);
     char * stats = get_stats(dbc);
     puts(stats);
     free(stats);
   } else {
     advance_puzzle_on_success(dbc, puzzle_id);
+    log_result(dbc, puzzle_id, success_arg);
     printf("Puzzle %s incremented for success\n", puzzle_id);
     char * stats = get_stats(dbc);
     puts(stats);
     free(stats);
   } 
 
-  log_result(dbc, puzzle_id, success_arg);
 
 }
 
