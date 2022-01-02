@@ -35,6 +35,7 @@ char const *useage =
   " \"s\" -- marks the current puzzle for success\n"
   " \"f\" -- marks the current puzzle for success\n"
   " \"next\" -- prints the next puzzle for the day, if available\n"
+  " \"n <number>\" -- prints the next n puzzles for the day, if so many are available\n"
   " \"stats\" -- prints the overall success and failure rates\n"
   " \"delete <puzzle__id>\" -- removes all references to puzzle <puzzle_id> from the database\n"
   " if command is none of these it should be a puzzle number (or url) followed by the character 's' or 'f' indicating success or failure\n";
@@ -61,6 +62,10 @@ void touch_dbfile() {
 
 }
 
+/* create_tables takes an sqlite3 database connection and creats two tables:
+ * puzzles: to store puzzle id, current score and next test date for each
+ * puzzle
+ */
 void create_tables(sqlite3* dbc) {
   char * error_message = 0;
   int rc;
@@ -79,6 +84,9 @@ void create_tables(sqlite3* dbc) {
 
 }
 
+/* get_db_conn() returns an sqlite3 database connection to an sqlite3  database
+ * file called dailypuzzles.sqlite in the same directory as the current script,
+ * creating it if it does not exist. */
 sqlite3* get_db_conn() {
 
   sqlite3* dbc = 0;
@@ -116,6 +124,8 @@ int fibonacci1(int seed) {
 }
 
 
+/* get_current_time() returns a pointer to a c tm struct representing the
+ * current system clock time */
 struct tm* get_current_time() {
 
   time_t currtm = time(NULL);
@@ -124,6 +134,9 @@ struct tm* get_current_time() {
 
 }
 
+/* get_target_day takes an int <offset> representing a number of days and gets
+ * the string representation of the day <offset> number of days from today in
+ * YYYY-MM-DD  format */
 char* get_target_day(int offset) {
 
   struct tm * lcltm = get_current_time();
@@ -137,16 +150,21 @@ char* get_target_day(int offset) {
   return repr;
 }
 
+/* get_today() gets the current day in YYYY-MM-DD format - proxying to
+ * get_target_day for the result  */
 char* get_today() {
 
   return get_target_day(0);
 
 }
 
+/* print instructions on how to use this program */
 void print_useage() {
   puts(useage);
 }
 
+/* get_stats returns a string showing the overall success and fail rate across
+ * all attempts on all puzzles */
 char * get_stats(sqlite3* dbc) {
 
   sqlite3_stmt * fail_success_rate_stmt;
@@ -173,6 +191,9 @@ char * get_stats(sqlite3* dbc) {
 
 }
 
+/* get_total_tests_for_day takes a database connection and a string
+ * representation of a day in YYYY-MM-DD format and returns the total number of
+ * tests slated to be worked on that day */
 int get_total_tests_for_day(sqlite3 *dbc, char * day) {
 
   sqlite3_stmt * total_test_stmt;
@@ -199,6 +220,8 @@ int get_total_tests_for_day(sqlite3 *dbc, char * day) {
 
 }
 
+/* current_puzzle takes a database connection and returns the puzzle_id of the
+ * next  puzzle to be worked today */
 char * current_puzzle(sqlite3* dbc) {
 
   sqlite3_stmt * next_test_stmt;
@@ -235,6 +258,9 @@ char * current_puzzle(sqlite3* dbc) {
 
 }
 
+/* get_puzzle_at_offset takes a database connection, and integer offset and a
+ * representation of a day in YYYY-MM-DD format and returns the puzzle at
+ * <offset> position in line to be worked on that day */
 char * get_puzzle_at_offset(sqlite3 * dbc, int offset, char * day) {
 
   sqlite3_stmt * get_puzzle_at_offset_stmt;
@@ -259,6 +285,9 @@ char * get_puzzle_at_offset(sqlite3 * dbc, int offset, char * day) {
 
 }
 
+/* get_next() displays the next puzzle to be worked as a link to chess.com and
+ * also shows the number of puzzles remaining to be worked on the current day
+ * as well as the current pass/fail rate against all attempts on all puzzles */
 void get_next() {
 
   sqlite3 * dbc = get_db_conn();
@@ -290,6 +319,9 @@ void get_next() {
 
 }
 
+/* get_next_count takes an int count and displays the next <count> number of
+ * puzzles to be worked on the current day, provided there are that many left
+ * */
 void get_next_count(int count) {
 
   sqlite3 * dbc = get_db_conn();
@@ -326,6 +358,8 @@ int is_pass(char * success_arg) {
   return strcmp(success_arg, "s") == 0;
 }
 
+/* check_success_arg takes a string and returns true if it is either 'f' or 's'
+ * and false otherwise */
 int check_success_arg(char * success_arg) {
   return is_fail(success_arg) || is_pass(success_arg);
 }
@@ -334,6 +368,9 @@ int check_advance_arg(char * advance_arg) {
   return strcmp(advance_arg, "a") == 0;
 }
 
+/* check_puzzle_exists takes a database connection and a string representing a
+ * puzzle_id and checks whehter <puzzle_id> in fact represents a puzzle in the
+ * database */
 int check_puzzle_exists(sqlite3* dbc, char * puzzle_id) {
   sqlite3_stmt * stmt;
   sqlite3_prepare_v2(dbc, puzzle_exists_statement, 50, &stmt, NULL);
@@ -342,6 +379,10 @@ int check_puzzle_exists(sqlite3* dbc, char * puzzle_id) {
   return result == SQLITE_ROW;
 }
 
+/* reset_puzzle_for_failure takes a database connection and a string
+ * representing a puzzle id and sets the score for that puzzle to 0 and the
+ * next test day to tomorrow, effectively starting the process for that puzzle
+ * over */
 void reset_puzzle_for_failure(sqlite3* dbc, char * puzzle_id) {
 
   sqlite3_stmt * update_puzzle_stmt;
@@ -364,6 +405,10 @@ void reset_puzzle_for_failure(sqlite3* dbc, char * puzzle_id) {
 
 }
 
+/* get_score_for_puzzle takes a database connection and a string representing a
+ * puzzle id and returns the current score for that puzzle.  The score
+ * represents an input to an algorithm to determine how many days in the future
+ * to work the puzzle again. */
 int get_score_for_puzzle(sqlite3 * dbc, char * puzzle_id){
 
   sqlite3_stmt * get_score_stmt;
@@ -388,6 +433,10 @@ int get_score_for_puzzle(sqlite3 * dbc, char * puzzle_id){
   
 }
 
+/* advance_puzzle_on_success takes a database connection and a puzzle id,
+ * increments the score for that puzzle, calculates -  based on the updated
+ * score - what the next test day should be and then saves this in the database
+ * */
 void advance_puzzle_on_success(sqlite3* dbc, char * puzzle_id) {
 
   sqlite3_stmt * update_puzzle_stmt;
@@ -411,6 +460,9 @@ void advance_puzzle_on_success(sqlite3* dbc, char * puzzle_id) {
 
 }
 
+/* log_result takes a database connection, a string representing a puzzle id
+ * and a string indicating success or failure and logs this result in the
+ * database */
 void log_result(sqlite3 *dbc, char * puzzle_id, char * success_arg) {
 
   sqlite3_stmt * insert_result_stmt;
@@ -430,6 +482,10 @@ void log_result(sqlite3 *dbc, char * puzzle_id, char * success_arg) {
   free(today);
 }
 
+/* update_existing_puzzle takes a database connection, a string representing a
+ * puzzle id and a string representing success or failure, logs this result for
+ * the puzzle in the database and then calculates and stores the next day the
+ * puzzle should be run */
 void update_existing_puzzle(sqlite3* dbc, char * puzzle_id, char * success_arg) {
 
   if(is_fail(success_arg)){
@@ -474,6 +530,10 @@ void create_new_puzzle_entry(sqlite3* dbc, char * puzzle_id, char * success_arg)
 
 }
 
+/* update_puzzle is a driver function that takes a string representing a puzzle
+ * id and a string representing success or failure and calls the appropriate
+ * function to log it according to whether the puzzle already exists in the
+ * database or not */
 void update_puzzle(char * puzzle_id, char * success_arg) {
 
   sqlite3* dbc = get_db_conn();
@@ -500,6 +560,9 @@ void show_stats() {
 
 }
 
+/* mark_current_puzzle takes a success_arg - a string of either 'f' or 's' -
+ * fetches the current puzzle and updates it as a failure or a success
+ * according to the success argument  */
 void mark_current_puzzle(char * success_arg) {
 
   sqlite3 * dbc = get_db_conn();
@@ -510,6 +573,10 @@ void mark_current_puzzle(char * success_arg) {
 }
 
 
+/* set_puzzle_date takes a database connection, a string representing a puzzle
+ * id and a string representing a target day and reassigned the puzzle
+ * identified by <puzzle_id> to the <target_da>.  This is a convenience
+ * function used by advance_current_puzzle */
 void set_puzzle_date(sqlite3 * dbc, char * puzzle_id, char * target_day) {
 
   sqlite3_stmt * set_date_stmt;
@@ -529,6 +596,8 @@ void set_puzzle_date(sqlite3 * dbc, char * puzzle_id, char * target_day) {
 
 }
 
+/* advance_current_puzzle takes an int <days> and advances the next puzzle to
+ * be worked <days> days from today instead of today */
 void advance_current_puzzle(int days) {
 
   sqlite3 * dbc = get_db_conn();
@@ -539,6 +608,9 @@ void advance_current_puzzle(int days) {
 
 }
 
+/* get_puzzle_id takes a string believed to represent a puzzle id and scans it
+ * to accept only integers, returning the string of integers from the original
+ * string */
 char * get_puzzle_id(char * command_arg){
 
   char * buffer = malloc(sizeof(char) * 50);
@@ -554,6 +626,9 @@ char * get_puzzle_id(char * command_arg){
   return buffer;
 }
 
+/* delete_puzzle takes a puzzle_id and creates a database connecton which it
+ * uses to delete the puzzle from the database completely, including records of
+ * results */
 void delete_puzzle(char * puzzle_id) {
   sqlite3 * dbc = get_db_conn();
   sqlite3_stmt * delete_puzzle_stmt;
