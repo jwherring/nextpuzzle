@@ -539,12 +539,13 @@ int main(int argc, char** argv) {
     return 0;
   }
 
-  command_arg = argv[1];
 
   if(argc == 1){
     get_next();
     return 0;
   }
+
+  command_arg = argv[1];
 
   if(argc == 2) {
 
