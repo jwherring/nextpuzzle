@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <ctype.h>
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -16,6 +17,7 @@ char const *insert_puzzle_statement = "insert into puzzles (puzzle_id, score, ne
 char const *insert_result_statement = "insert into results (puzzle_id, date, result) values (:puzzle_id, :date, :result)";
 char const *update_puzzle_statement = "update puzzles set score=:score, next_test_date=:next_test_date where puzzle_id=:puzzle_id";
 char const *get_next_test_statement = "select puzzle_id from puzzles where next_test_date<=:next_test_date";
+char const *get_puzzle_at_offset_statement = "select puzzle_id from puzzles where next_test_date<=:next_test_date limit 1 offset :offset";
 char const *get_total_remaining_tests_statement = "select count(*) from puzzles where next_test_date<=:next_test_date";
 char const *get_score_for_puzzle_statement = "select score from puzzles where puzzle_id=:puzzle_id";
 char const *get_overall_failure_success_rate_statement = "select sum(case when result=\"f\" then 1.0 else 0.0 end)/count(*) * 100 as failure_rate, sum(case when result=\"s\" then 1.0 else 0.0 end)/count(*) * 100 as success_rate from results";
@@ -233,6 +235,30 @@ char * current_puzzle(sqlite3* dbc) {
 
 }
 
+char * get_puzzle_at_offset(sqlite3 * dbc, int offset, char * day) {
+
+  sqlite3_stmt * get_puzzle_at_offset_stmt;
+
+  sqlite3_prepare_v2(dbc, get_puzzle_at_offset_statement, strlen(get_puzzle_at_offset_statement) + 50, &get_puzzle_at_offset_stmt, NULL);
+
+  sqlite3_bind_text(get_puzzle_at_offset_stmt,1,day,strlen(day),NULL);
+  sqlite3_bind_int(get_puzzle_at_offset_stmt,2,offset);
+
+  int result = sqlite3_step(get_puzzle_at_offset_stmt);
+  if(result == SQLITE_ROW){
+    const unsigned char* next_test_id = sqlite3_column_text(get_puzzle_at_offset_stmt,0);
+
+    char * retval;
+    strcpy(retval, next_test_id);
+    sqlite3_finalize(get_puzzle_at_offset_stmt);
+    return retval;
+  }
+
+  sqlite3_finalize(get_puzzle_at_offset_stmt);
+  return "";
+
+}
+
 void get_next() {
 
   sqlite3 * dbc = get_db_conn();
@@ -260,6 +286,34 @@ void get_next() {
     printf("No more tests today!!!\n");
     free(today);
     return;
+  }
+
+}
+
+void get_next_count(int count) {
+
+  sqlite3 * dbc = get_db_conn();
+  char * today = get_today();
+  int tests_remaining = get_total_tests_for_day(dbc, today);
+
+  if(tests_remaining >= count){
+    for(int i = 0; i < count; i++) {
+      char * puzzle_id = get_puzzle_at_offset(dbc,i,today);
+      printf("https://www.chess.com/puzzles/problem/%s\n", puzzle_id);
+    }
+    char * stats = get_stats(dbc);
+    printf("REMAINING: %d\n", tests_remaining - 1);
+    puts(stats);
+    free(stats);
+    free(today);
+    return;
+
+  } else {
+
+    printf("There are only %d tests remaining today\n", tests_remaining);
+    free(today);
+    return;
+
   }
 
 }
@@ -455,6 +509,7 @@ void mark_current_puzzle(char * success_arg) {
 
 }
 
+
 void set_puzzle_date(sqlite3 * dbc, char * puzzle_id, char * target_day) {
 
   sqlite3_stmt * set_date_stmt;
@@ -581,6 +636,12 @@ int main(int argc, char** argv) {
     delete_puzzle(success_arg);
     return 0;
   }
+
+  if(strcmp(command_arg, "n") == 0 && strlen(success_arg) < 10 && isdigit(success_arg[0])){
+    get_next_count(atoi(success_arg));
+    return 0;
+  }
+
 
   if(!check_success_arg(success_arg)){
     print_useage();
