@@ -25,6 +25,10 @@ Otherwise build is simple - just use your favorite C compiler and link `libsqlit
 
 `nextpuzzle` is a cli that accepts the following commands, some of which require a parameter:
 
+1. `<no-arg>` - simply calling the program with no arguments gets the next puzzle to be worked
 1. `next` - gets the next puzzle for the current day; prints a success message if there are no more puzzles for today.
-1. `<puzzle_id> s|f` - records success or failure for a given puzzle id.  If this is a new puzzle with 's' or an existing puzzle id with 'f', it sets the puzzle score to `0` and queues it for work the next day. If this is an existing puzzle id with 's' it increments the score for that puzzle by 1 and calculates the next day it should be worked according to the algoritm above.
+1. `<puzzle id|puzzle url> s|f` - records success or failure for a given puzzle id.  If this is a new puzzle with 's' or an existing puzzle id with 'f', it sets the puzzle score to `0` and queues it for work the next day. If this is an existing puzzle id with 's' it increments the score for that puzzle by 1 and calculates the next day it should be worked according to the algoritm above.
+1. `s|f` - supplying one of these characters as argument without a preceding puzzle id or url assumes the puzzle in question is the current next puzzle
+1. `future` - shows a breakdown of all the upcomming test dates with more than 0 puzzles and how many puzzles are slated to be worked each day
+1. `useage` - prints a useage message - more or less equivalent to this one
 1. `stats` - prints an overall success and failure rate
