@@ -30,15 +30,17 @@ char const *commit_transaction_statement = "commit";
 char const *rollback_transaction_statememt = "rollback";
 char const *dtformat = "%F";
 char const *useage = 
-  "Useage dailypuzzles <command>\n"
+  "Useage dailypuzzles <command> [args...]\n"
   "COMMAND\n"
   " \"<no arg>\" -- prints the next puzzle for the day, if available\n"
   " \"s\" -- marks the current puzzle for success\n"
   " \"f\" -- marks the current puzzle for success\n"
+  " \"delete <puzzle__id>\" -- removes all references to puzzle <puzzle_id> from the database\n"
+  " \"future\" -- prints a list of dates paired with the number of tests schedules for that date\n"
   " \"next\" -- prints the next puzzle for the day, if available\n"
   " \"n <number>\" -- prints the next n puzzles for the day, if so many are available\n"
   " \"stats\" -- prints the overall success and failure rates\n"
-  " \"delete <puzzle__id>\" -- removes all references to puzzle <puzzle_id> from the database\n"
+  " \"useage\" -- prints this message\n"
   " if command is none of these it should be a puzzle number (or url) followed by the character 's' or 'f' indicating success or failure\n";
 
 mode_t fullmode = S_IRWXU|S_IRWXG|S_IRWXO;
@@ -713,6 +715,11 @@ int main(int argc, char** argv) {
 
     if(strcmp(command_arg, "future") == 0){
       show_upcoming();
+      return 0;
+    }
+
+    if(strcmp(command_arg, "useage") == 0){
+      print_useage();
       return 0;
     }
 
