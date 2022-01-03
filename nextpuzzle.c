@@ -22,6 +22,7 @@ char const *get_total_remaining_tests_statement = "select count(*) from puzzles 
 char const *get_upcomming_puzzles_count_by_date = "select next_test_date, count(*) as total from puzzles group by next_test_date";
 char const *get_score_for_puzzle_statement = "select score from puzzles where puzzle_id=:puzzle_id";
 char const *get_overall_failure_success_rate_statement = "select sum(case when result=\"f\" then 1.0 else 0.0 end)/count(*) * 100 as failure_rate, sum(case when result=\"s\" then 1.0 else 0.0 end)/count(*) * 100 as success_rate from results";
+char const *get_individual_puzzle_stats_statement = "select puzzle_id, score, (select count(1) from results rs where result='s' and pz.puzzle_id=rs.puzzle_id) as success, (select count(1) from results rs where result='f' and pz.puzzle_id=rs.puzzle_id) as failure, (select count(1) from results rs where pz.puzzle_id=rs.puzzle_id) as attempts from puzzles pz order by score desc, success desc, failure asc";
 char const *set_puzzle_date_statement = "update puzzles set next_test_date=:next_test_date where puzzle_id=:puzzle_id";
 char const *delete_puzzle_from_puzzles_statement = "delete from puzzles where puzzle_id=:puzzle_id";
 char const *delete_puzzle_from_results_statement = "delete from results where puzzle_id=:puzzle_id";
