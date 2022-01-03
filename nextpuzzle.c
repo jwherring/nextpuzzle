@@ -19,6 +19,7 @@ char const *update_puzzle_statement = "update puzzles set score=:score, next_tes
 char const *get_next_test_statement = "select puzzle_id from puzzles where next_test_date<=:next_test_date";
 char const *get_puzzle_at_offset_statement = "select puzzle_id from puzzles where next_test_date<=:next_test_date limit 1 offset :offset";
 char const *get_total_remaining_tests_statement = "select count(*) from puzzles where next_test_date<=:next_test_date";
+char const *get_upcomming_puzzles_count_by_date = "select next_test_date, count(*) as total from puzzles group by next_test_date";
 char const *get_score_for_puzzle_statement = "select score from puzzles where puzzle_id=:puzzle_id";
 char const *get_overall_failure_success_rate_statement = "select sum(case when result=\"f\" then 1.0 else 0.0 end)/count(*) * 100 as failure_rate, sum(case when result=\"s\" then 1.0 else 0.0 end)/count(*) * 100 as success_rate from results";
 char const *set_puzzle_date_statement = "update puzzles set next_test_date=:next_test_date where puzzle_id=:puzzle_id";
@@ -660,6 +661,27 @@ void delete_puzzle(char * puzzle_id) {
 
 }
 
+void show_upcoming() {
+
+  sqlite3 * dbc = get_db_conn();
+  sqlite3_stmt * upcomming_puzzles_count_stmt;
+  
+  sqlite3_prepare_v2(dbc,get_upcomming_puzzles_count_by_date,strlen(get_upcomming_puzzles_count_by_date),&upcomming_puzzles_count_stmt,NULL);
+  while(sqlite3_step(upcomming_puzzles_count_stmt) == SQLITE_ROW){
+    const char * fmt = "%s - %s\n";
+    char output[20];
+    const char * date = sqlite3_column_text(upcomming_puzzles_count_stmt,0);
+    const char * test_count = sqlite3_column_text(upcomming_puzzles_count_stmt,1);
+    sprintf(output, fmt, date, test_count);
+    puts(output);
+  }
+
+  sqlite3_finalize(upcomming_puzzles_count_stmt);
+
+  sqlite3_close(dbc);
+
+}
+
 int main(int argc, char** argv) {
 
   char * command_arg;
@@ -686,6 +708,11 @@ int main(int argc, char** argv) {
 
     if(strcmp(command_arg, "stats") == 0){
       show_stats();
+      return 0;
+    }
+
+    if(strcmp(command_arg, "future") == 0){
+      show_upcoming();
       return 0;
     }
 
