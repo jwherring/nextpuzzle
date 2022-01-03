@@ -9,6 +9,8 @@
 #include <string.h>
 #include <time.h>
 
+int get_total_tests_for_day(sqlite3 *, char *);
+
 char const *dbfh = "dailypuzzles.sqlite";
 char const *create_puzzles_table = "create table puzzles (id integer primary key autoincrement, puzzle_id text not null, score integer default 0, next_test_date text not null)";
 char const *create_results_table = "create table results (id integer primary key autoincrement, puzzle_id text not null, date text not null, result text not null)";
@@ -189,8 +191,11 @@ char * get_stats(sqlite3* dbc) {
   sqlite3_finalize(fail_success_rate_stmt);
 
 
+  char * today = get_today();
+  int tests_remaining; 
+  tests_remaining  = get_total_tests_for_day(dbc, today);
   char * buffer = malloc(sizeof(char) * 50);
-  sprintf(buffer, "FAIL: %.2f\nSUCCESS: %.2f\n", failure_rate, success_rate);
+  sprintf(buffer, "REMAINING: %d\nFAIL: %.2f\nSUCCESS: %.2f\n", tests_remaining, failure_rate, success_rate);
   return buffer;
 
 }
