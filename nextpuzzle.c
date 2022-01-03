@@ -8,42 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-
-int database_file_exists(void);
-void print_error(int, int);
-void touch_dbfile(void);
-void create_tables(sqlite3 *);
-sqlite3* get_db_conn(void);
-int fibonacci1(int);
-struct tm* get_current_time(void);
-char* get_target_day(int);
-char* get_today(void);
-void print_useage(void);
-char * get_stats(sqlite3 *);
-int get_total_tests_for_day(sqlite3 *, char *);
-char * current_puzzle(sqlite3 *);
-char * get_puzzle_at_offset(sqlite3 *, int , char *);
-void get_next(void);
-void get_next_count(int);
-int is_fail(char *);
-int is_pass(char *);
-int check_success_arg(char *);
-int check_advance_arg(char *);
-int check_puzzle_exists(sqlite3 * , char *);
-void reset_puzzle_for_failure(sqlite3 *, char *);
-int get_score_for_puzzle(sqlite3 *, char *);
-void advance_puzzle_on_success(sqlite3 * , char *);
-void log_result(sqlite3 *, char *, char *);
-void update_existing_puzzle(sqlite3 *, char *, char *);
-void create_new_puzzle_entry(sqlite3 *, char *, char *);
-void update_puzzle(char *, char *);
-void show_stats(void);
-void mark_current_puzzle(char *);
-void set_puzzle_date(sqlite3 *, char *, char *);
-void advance_current_puzzle(int);
-char * get_puzzle_id(char *);
-void delete_puzzle(char *);
-void show_upcoming(void);
+#include "nextpuzzle.h"
 
 char const *dbfh = "dailypuzzles.sqlite";
 char const *create_puzzles_table = "create table puzzles (id integer primary key autoincrement, puzzle_id text not null, score integer default 0, next_test_date text not null)";
