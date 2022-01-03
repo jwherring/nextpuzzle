@@ -192,8 +192,7 @@ char * get_stats(sqlite3* dbc) {
 
 
   char * today = get_today();
-  int tests_remaining; 
-  tests_remaining  = get_total_tests_for_day(dbc, today);
+  int tests_remaining = get_total_tests_for_day(dbc, today);
   char * buffer = malloc(sizeof(char) * 50);
   sprintf(buffer, "REMAINING: %d\nFAIL: %.2f\nSUCCESS: %.2f\n", tests_remaining, failure_rate, success_rate);
   return buffer;
