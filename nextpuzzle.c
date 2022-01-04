@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <regex.h>
 #include <sys/stat.h>
 #include <sqlite3.h>
 #include <stdlib.h>
@@ -31,6 +32,7 @@ char const *begin_transaction_statement = "begin transacton";
 char const *commit_transaction_statement = "commit";
 char const *rollback_transaction_statememt = "rollback";
 char const *dtformat = "%F";
+char const *success_fail_string_regex = "^[sf]+$";
 char const *useage = 
   "Useage dailypuzzles <command> [args...]\n"
   "COMMAND\n"
@@ -357,6 +359,52 @@ void get_next_count(int count) {
 
 }
 
+/* check_success_string_arg checks whether the argument is a string of 'f' and
+ * 's' */
+int check_success_string_arg(char * success_arg){
+  regex_t expression;
+
+  regcomp(&expression, success_fail_string_regex, REG_EXTENDED);
+  
+  if(regexec(&expression, success_arg, 0, NULL, 0) == 0){
+    return 1; //Matches, return true
+  }
+
+  return 0;//Otherwise, false
+
+}
+
+/* record_batch_results takes a string consisting of only s and f -  each
+ * character of which represents a result for a puzzle - and applies them one
+ * by one to the next puzzle in line.  Returns early if there are not enough
+ * puzzles to match the string */
+void record_batch_results(char * success_arg) {
+
+  sqlite3 * dbc = get_db_conn();
+
+  char * today = get_today();
+  int batch_count = strlen(success_arg);
+  int tests_remaining = get_total_tests_for_day(dbc, today);
+
+  if(batch_count > tests_remaining) {
+    printf("Cannot batch record results - there are only %d tests remaining and there are %d items in the request.\n", tests_remaining, batch_count);
+    return;
+  }
+
+  for(int i = 0; i < batch_count; i++) {
+    char s_arg[2];
+    char puzzle_id_arg[MAX_PUZZLE_LEN];
+    sprintf(s_arg, "%c", success_arg[i]);
+    char * puzzle_id = get_puzzle_at_offset(dbc,i,today);
+    strcpy(puzzle_id_arg, puzzle_id);
+    //printf("[%d] %s - %s\n", i, puzzle_id, s_arg);
+    update_existing_puzzle(dbc, puzzle_id_arg, s_arg);
+  }
+
+  sqlite3_close(dbc);
+
+}
+
 int is_fail(char * success_arg) {
   return strcmp(success_arg, "f") == 0;
 }
@@ -390,7 +438,10 @@ int check_puzzle_exists(sqlite3* dbc, char * puzzle_id) {
  * representing a puzzle id and sets the score for that puzzle to 0 and the
  * next test day to tomorrow, effectively starting the process for that puzzle
  * over */
-void reset_puzzle_for_failure(sqlite3* dbc, char * puzzle_id) {
+void reset_puzzle_for_failure(sqlite3* dbc, char * puzzle_id_arg) {
+
+  char puzzle_id[MAX_PUZZLE_LEN];
+  strcpy(puzzle_id, puzzle_id_arg); //Copy in because otherwise there's weird behavior after finalize, I think???
 
   sqlite3_stmt * update_puzzle_stmt;
 
@@ -417,17 +468,21 @@ void reset_puzzle_for_failure(sqlite3* dbc, char * puzzle_id) {
  * represents an input to an algorithm to determine how many days in the future
  * to work the puzzle again. */
 int get_score_for_puzzle(sqlite3 * dbc, char * puzzle_id){
+  printf("GET SCORE FOR: %s\n", puzzle_id);
 
   sqlite3_stmt * get_score_stmt;
   int score = 0;
+  char puzzle_buffer[50];
 
-  sqlite3_prepare_v2(dbc, get_score_for_puzzle_statement,strlen(get_score_for_puzzle_statement) + 20, &get_score_stmt, NULL);
+  strcpy(puzzle_buffer, puzzle_id);
 
-  sqlite3_bind_text(get_score_stmt, 1, puzzle_id, strlen(puzzle_id),NULL);
+  int res = sqlite3_prepare_v2(dbc, get_score_for_puzzle_statement,strlen(get_score_for_puzzle_statement) + 20, &get_score_stmt, NULL);
+
+  int resii = sqlite3_bind_text(get_score_stmt, 1, puzzle_buffer, strlen(puzzle_buffer),NULL);
 
   int result = sqlite3_step(get_score_stmt);
   if(result == SQLITE_ERROR || result != SQLITE_ROW){
-    printf("ERROR getting score for puzzle: %s\n", sqlite3_errmsg(dbc));
+    printf("ERROR getting score for puzzle: %s - %d - %s\n", sqlite3_errmsg(dbc), result, puzzle_buffer);
     sqlite3_finalize(get_score_stmt);
     return score;
   }
@@ -444,7 +499,10 @@ int get_score_for_puzzle(sqlite3 * dbc, char * puzzle_id){
  * increments the score for that puzzle, calculates -  based on the updated
  * score - what the next test day should be and then saves this in the database
  * */
-void advance_puzzle_on_success(sqlite3* dbc, char * puzzle_id) {
+void advance_puzzle_on_success(sqlite3* dbc, char * puzzle_id_arg) {
+
+  char puzzle_id[MAX_PUZZLE_LEN];
+  strcpy(puzzle_id, puzzle_id_arg);// copy puzzle_id because otherwise it drops after sqlite3_finalize - I think???
 
   sqlite3_stmt * update_puzzle_stmt;
   int current_score = get_score_for_puzzle(dbc, puzzle_id) + 1;
@@ -724,6 +782,12 @@ int main(int argc, char** argv) {
 
     if(strcmp(command_arg, "useage") == 0){
       print_useage();
+      return 0;
+    }
+
+    // Argument is a string of 's' and 'f' and represents a batch update
+    if(check_success_string_arg(command_arg)){
+      record_batch_results(command_arg);
       return 0;
     }
 
