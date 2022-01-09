@@ -1,4 +1,7 @@
 #define MAX_PUZZLE_LEN 20
+#define BASE_INTERVAL 6
+#define MAX_SUCCESS 4
+#define MAX_INTERVAL 60
 
 char * current_puzzle(sqlite3 *);
 char * get_puzzle_at_offset(sqlite3 *, int , char *);

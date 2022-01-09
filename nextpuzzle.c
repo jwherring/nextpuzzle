@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <math.h>
 #include <regex.h>
 #include <sys/stat.h>
 #include <sqlite3.h>
@@ -128,6 +129,41 @@ int fibonacci1(int seed) {
   }
 
   return b;
+}
+
+struct interval_update {
+  int successes;
+  double easiness_factor;
+  int interval;
+}
+/* Implementaton of the SM2 algoriithm from SuperMemo: n - number of successful
+ * repetitions in a row q - user grade for how difficult recall was - (>= 3
+ * indiicates success) RETURNS - interval in days before next test
+ */
+void interval_update sm2(int q, struct interval_update* iu) {
+
+  if (q >= 3) { //success
+    if(iu->successes > MAX_SUCCESS){
+      iu->interval = MAX_INTERVAL;
+    } else if(iu->successes == 0) {
+      iu->interval = 1;
+    } else if (iu->successes == 1) {
+      iu->interval = BASE_INTERVAL;
+    } else {
+      iu->interval = round(iu->interval * iu->easiness_factor);
+    }
+    iu->successes += 1;
+  } else {//failure
+    iu->interval = 1;
+    iu->successes = 0;
+  }
+
+  iu->easiness_factor += (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02));
+  if(iu->easiness_factor < 1.3){
+    iu->easiness_factor = 1.3;
+  }
+
+
 }
 
 
