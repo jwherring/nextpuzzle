@@ -709,9 +709,9 @@ void advance_current_puzzle(int days) {
 /* get_puzzle_id takes a string believed to represent a puzzle id and scans it
  * to accept only integers, returning the string of integers from the original
  * string */
-char * get_puzzle_id(char * command_arg){
+void get_puzzle_id(char * buffer, char * command_arg){
 
-  char * buffer = malloc(sizeof(char) * 50);
+  //char * buffer = malloc(sizeof(char) * 50);
   int i = 0;
   char * nums = "0123456789";
   char * pch = strpbrk(command_arg, nums);
@@ -721,7 +721,6 @@ char * get_puzzle_id(char * command_arg){
     pch = strpbrk(pch+1, nums);
   }
   buffer[i] = '\0';
-  return buffer;
 }
 
 /* delete_puzzle takes a puzzle_id and creates a database connecton which it
@@ -858,9 +857,9 @@ int main(int argc, char** argv) {
     return 0;
   }
 
-  char * puzzle_id = get_puzzle_id(command_arg);
+  char puzzle_id[50];
+  get_puzzle_id(puzzle_id, command_arg);
   update_puzzle(puzzle_id, success_arg);
-  free(puzzle_id);
 
   return 0;
 

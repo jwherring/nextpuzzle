@@ -5,7 +5,7 @@
 
 char * current_puzzle(sqlite3 *);
 char * get_puzzle_at_offset(sqlite3 *, int , char *);
-char * get_puzzle_id(char *);
+void get_puzzle_id(char *, char *);
 char * get_stats(sqlite3 *);
 void get_target_day(char *, int);
 void get_today(char*);
