@@ -305,7 +305,7 @@ void current_puzzle(sqlite3* dbc, char * retval) {
 /* get_puzzle_at_offset takes a database connection, and integer offset and a
  * representation of a day in YYYY-MM-DD format and returns the puzzle at
  * <offset> position in line to be worked on that day */
-char * get_puzzle_at_offset(sqlite3 * dbc, int offset, char * day) {
+void get_puzzle_at_offset(sqlite3 * dbc, char * retval, int offset, char * day) {
 
   sqlite3_stmt * get_puzzle_at_offset_stmt;
 
@@ -318,14 +318,13 @@ char * get_puzzle_at_offset(sqlite3 * dbc, int offset, char * day) {
   if(result == SQLITE_ROW){
     const unsigned char* next_test_id = sqlite3_column_text(get_puzzle_at_offset_stmt,0);
 
-    char * retval;
     strcpy(retval, next_test_id);
     sqlite3_finalize(get_puzzle_at_offset_stmt);
-    return retval;
+    return;
   }
 
   sqlite3_finalize(get_puzzle_at_offset_stmt);
-  return "";
+  strcpy(retval, "\0");
 
 }
 
@@ -374,7 +373,8 @@ void get_next_count(int count) {
 
   if(tests_remaining >= count){
     for(int i = 0; i < count; i++) {
-      char * puzzle_id = get_puzzle_at_offset(dbc,i,today);
+      char puzzle_id[50];
+      get_puzzle_at_offset(dbc,puzzle_id,i,today);
       printf("https://www.chess.com/puzzles/problem/%s\n", puzzle_id);
     }
     char * stats = get_stats(dbc);
@@ -429,8 +429,7 @@ void record_batch_results(char * success_arg) {
     char s_arg[2];
     char puzzle_id_arg[MAX_PUZZLE_LEN];
     sprintf(s_arg, "%c", success_arg[i]);
-    char * puzzle_id = get_puzzle_at_offset(dbc,i,today);
-    strcpy(puzzle_id_arg, puzzle_id);
+    get_puzzle_at_offset(dbc,puzzle_id_arg,i,today);
     update_existing_puzzle(dbc, puzzle_id_arg, s_arg);
   }
 
@@ -505,7 +504,7 @@ int get_score_for_puzzle(sqlite3 * dbc, char * puzzle_id){
 
   sqlite3_stmt * get_score_stmt;
   int score = 0;
-  char puzzle_buffer[50];
+  char puzzle_buffer[MAX_PUZZLE_LEN];
 
   strcpy(puzzle_buffer, puzzle_id);
 
@@ -664,7 +663,7 @@ void show_stats() {
 void mark_current_puzzle(char * success_arg) {
 
   sqlite3 * dbc = get_db_conn();
-  char puzzle_id[50];
+  char puzzle_id[MAX_PUZZLE_LEN];
   current_puzzle(dbc, puzzle_id);
   update_existing_puzzle(dbc, puzzle_id, success_arg);
   sqlite3_close(dbc);
@@ -700,7 +699,7 @@ void set_puzzle_date(sqlite3 * dbc, char * puzzle_id, char * target_day) {
 void advance_current_puzzle(int days) {
 
   sqlite3 * dbc = get_db_conn();
-  char puzzle_id[50];
+  char puzzle_id[MAX_PUZZLE_LEN];
   current_puzzle(dbc, puzzle_id);
   char target_day[11];
   get_target_day(target_day, days);
@@ -713,7 +712,6 @@ void advance_current_puzzle(int days) {
  * string */
 void get_puzzle_id(char * buffer, char * command_arg){
 
-  //char * buffer = malloc(sizeof(char) * 50);
   int i = 0;
   char * nums = "0123456789";
   char * pch = strpbrk(command_arg, nums);
@@ -859,7 +857,7 @@ int main(int argc, char** argv) {
     return 0;
   }
 
-  char puzzle_id[50];
+  char puzzle_id[MAX_PUZZLE_LEN];
   get_puzzle_id(puzzle_id, command_arg);
   update_puzzle(puzzle_id, success_arg);
 
