@@ -1,4 +1,5 @@
 #define MAX_PUZZLE_LEN 20
+#define STATS_LEN 50
 #define BASE_INTERVAL 6
 #define MAX_SUCCESS 4
 #define MAX_INTERVAL 60
@@ -6,7 +7,7 @@
 void current_puzzle(sqlite3 *, char *);
 void get_puzzle_at_offset(sqlite3 *, char *, int, char *);
 void get_puzzle_id(char *, char *);
-char * get_stats(sqlite3 *);
+void get_stats(sqlite3 *, char *);
 void get_target_day(char *, int);
 void get_today(char*);
 int check_advance_arg(char *);

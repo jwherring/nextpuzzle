@@ -208,7 +208,7 @@ void print_useage() {
 
 /* get_stats returns a string showing the overall success and fail rate across
  * all attempts on all puzzles */
-char * get_stats(sqlite3* dbc) {
+void get_stats(sqlite3* dbc, char * buffer) {
 
   sqlite3_stmt * fail_success_rate_stmt;
 
@@ -220,7 +220,8 @@ char * get_stats(sqlite3* dbc) {
 
   if(result != SQLITE_ROW) {
     printf("ERROR getting stats: %s\n", sqlite3_errmsg(dbc));
-    return "";
+    strcpy(buffer, "\0");
+    return;
   }
 
   failure_rate = sqlite3_column_double(fail_success_rate_stmt, 0);
@@ -231,9 +232,7 @@ char * get_stats(sqlite3* dbc) {
   char today[11];
   get_today(today);
   int tests_remaining = get_total_tests_for_day(dbc, today);
-  char * buffer = malloc(sizeof(char) * 50);
   sprintf(buffer, "REMAINING: %d\nFAIL: %.2f\nSUCCESS: %.2f\n", tests_remaining, failure_rate, success_rate);
-  return buffer;
 
 }
 
@@ -346,11 +345,11 @@ void get_next() {
       return;
     }
 
-    char * stats = get_stats(dbc);
+    char stats[STATS_LEN];
+    get_stats(dbc, stats);
     printf("https://www.chess.com/puzzles/problem/%s\n", next_test_id);
     printf("REMAINING: %d\n", tests_remaining - 1);
     puts(stats);
-    free(stats);
 
     return;
 
@@ -377,10 +376,10 @@ void get_next_count(int count) {
       get_puzzle_at_offset(dbc,puzzle_id,i,today);
       printf("https://www.chess.com/puzzles/problem/%s\n", puzzle_id);
     }
-    char * stats = get_stats(dbc);
+    char stats[STATS_LEN];
+    get_stats(dbc, stats);
     printf("REMAINING: %d\n", tests_remaining - 1);
     puts(stats);
-    free(stats);
 
   } else {
 
@@ -585,20 +584,20 @@ void log_result(sqlite3 *dbc, char * puzzle_id, char * success_arg) {
  * puzzle should be run */
 void update_existing_puzzle(sqlite3* dbc, char * puzzle_id, char * success_arg) {
 
+  char stats[STATS_LEN];
+
   if(is_fail(success_arg)){
     reset_puzzle_for_failure(dbc, puzzle_id);
     log_result(dbc, puzzle_id, success_arg);
     printf("Puzzle %s reset for failure\n", puzzle_id);
-    char * stats = get_stats(dbc);
+    get_stats(dbc, stats);
     puts(stats);
-    free(stats);
   } else {
     advance_puzzle_on_success(dbc, puzzle_id);
     log_result(dbc, puzzle_id, success_arg);
     printf("Puzzle %s incremented for success\n", puzzle_id);
-    char * stats = get_stats(dbc);
+    get_stats(dbc, stats);
     puts(stats);
-    free(stats);
   } 
 
 
@@ -650,9 +649,9 @@ void show_stats() {
 
   sqlite3 * dbc = get_db_conn();
 
-  char * stats = get_stats(dbc);
+  char stats[STATS_LEN];
+  get_stats(dbc, stats);
   puts(stats);
-  free(stats);
   sqlite3_close(dbc);
 
 }
