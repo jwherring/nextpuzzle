@@ -135,12 +135,13 @@ struct interval_update {
   int successes;
   double easiness_factor;
   int interval;
-}
+};
+
 /* Implementaton of the SM2 algoriithm from SuperMemo: n - number of successful
  * repetitions in a row q - user grade for how difficult recall was - (>= 3
  * indiicates success) RETURNS - interval in days before next test
  */
-void interval_update sm2(int q, struct interval_update* iu) {
+void sm2(int q, struct interval_update* iu) {
 
   if (q >= 3) { //success
     if(iu->successes > MAX_SUCCESS){
@@ -180,24 +181,23 @@ struct tm* get_current_time() {
 /* get_target_day takes an int <offset> representing a number of days and gets
  * the string representation of the day <offset> number of days from today in
  * YYYY-MM-DD  format */
-char* get_target_day(int offset) {
+void get_target_day(char * repr, int offset) {
 
   struct tm * lcltm = get_current_time();
   lcltm->tm_mday += offset;
 
-  char * repr = malloc(sizeof(char) * 11);
+  //char * repr = malloc(sizeof(char) * 11);
   mktime(lcltm); //handle possible date overflow
 
   strftime(repr, 11, dtformat, lcltm);
 
-  return repr;
 }
 
 /* get_today() gets the current day in YYYY-MM-DD format - proxying to
  * get_target_day for the result  */
-char* get_today() {
+void get_today(char * repr) {
 
-  return get_target_day(0);
+  get_target_day(repr, 0);
 
 }
 
@@ -228,7 +228,8 @@ char * get_stats(sqlite3* dbc) {
   sqlite3_finalize(fail_success_rate_stmt);
 
 
-  char * today = get_today();
+  char today[11];
+  get_today(today);
   int tests_remaining = get_total_tests_for_day(dbc, today);
   char * buffer = malloc(sizeof(char) * 50);
   sprintf(buffer, "REMAINING: %d\nFAIL: %.2f\nSUCCESS: %.2f\n", tests_remaining, failure_rate, success_rate);
@@ -270,7 +271,8 @@ int get_total_tests_for_day(sqlite3 *dbc, char * day) {
 char * current_puzzle(sqlite3* dbc) {
 
   sqlite3_stmt * next_test_stmt;
-  char * today = get_today();
+  char today[11];
+  get_today(today);
 
   sqlite3_prepare_v2(dbc, get_next_test_statement, strlen(get_next_test_statement) + 50, &next_test_stmt, NULL);
 
@@ -280,7 +282,6 @@ char * current_puzzle(sqlite3* dbc) {
 
   if(result == SQLITE_ERROR){
     printf("ERROR getting next test: %s\n", sqlite3_errmsg(dbc));
-    free(today);
     return "";
   }
 
@@ -291,14 +292,12 @@ char * current_puzzle(sqlite3* dbc) {
     char * retval;
     strcpy(retval, next_test_id);
     sqlite3_finalize(next_test_stmt);
-    free(today);
     return retval;
   }
 
   // There are no more tests, return empty string.  Shouldn't actually get here
   // if you call get_total_tests_for_day and verify it's greater than 0 first
   sqlite3_finalize(next_test_stmt);
-  free(today);
   return "";
 
 }
@@ -336,14 +335,14 @@ char * get_puzzle_at_offset(sqlite3 * dbc, int offset, char * day) {
 void get_next() {
 
   sqlite3 * dbc = get_db_conn();
-  char * today = get_today();
+  char today[11];
+  get_today(today);
   int tests_remaining = get_total_tests_for_day(dbc, today);
 
   if(tests_remaining > 0){
     char * next_test_id = current_puzzle(dbc);
     if(strlen(next_test_id) == 0){
       printf("No more tests today!!!");
-      free(today);
       return;
     }
 
@@ -352,13 +351,11 @@ void get_next() {
     printf("REMAINING: %d\n", tests_remaining - 1);
     puts(stats);
     free(stats);
-    free(today);
 
     return;
 
   } else {
     printf("No more tests today!!!\n");
-    free(today);
     return;
   }
 
@@ -370,7 +367,8 @@ void get_next() {
 void get_next_count(int count) {
 
   sqlite3 * dbc = get_db_conn();
-  char * today = get_today();
+  char today[11];
+  get_today(today);
   int tests_remaining = get_total_tests_for_day(dbc, today);
 
   if(tests_remaining >= count){
@@ -382,16 +380,14 @@ void get_next_count(int count) {
     printf("REMAINING: %d\n", tests_remaining - 1);
     puts(stats);
     free(stats);
-    free(today);
-    return;
 
   } else {
 
     printf("There are only %d tests remaining today\n", tests_remaining);
-    free(today);
-    return;
 
   }
+
+  sqlite3_close(dbc);
 
 }
 
@@ -418,7 +414,8 @@ void record_batch_results(char * success_arg) {
 
   sqlite3 * dbc = get_db_conn();
 
-  char * today = get_today();
+  char today[11];
+  get_today(today);
   int batch_count = strlen(success_arg);
   int tests_remaining = get_total_tests_for_day(dbc, today);
 
@@ -481,7 +478,8 @@ void reset_puzzle_for_failure(sqlite3* dbc, char * puzzle_id_arg) {
 
   sqlite3_stmt * update_puzzle_stmt;
 
-  char * next_test_day = get_target_day(1);
+  char next_test_day[11];
+  get_target_day(next_test_day, 1);
 
   sqlite3_prepare_v2(dbc, update_puzzle_statement, strlen(update_puzzle_statement) + 20, &update_puzzle_stmt, NULL);
 
@@ -495,7 +493,6 @@ void reset_puzzle_for_failure(sqlite3* dbc, char * puzzle_id_arg) {
   }
 
   sqlite3_finalize(update_puzzle_stmt);
-  free(next_test_day);
 
 }
 
@@ -543,7 +540,8 @@ void advance_puzzle_on_success(sqlite3* dbc, char * puzzle_id_arg) {
   sqlite3_stmt * update_puzzle_stmt;
   int current_score = get_score_for_puzzle(dbc, puzzle_id) + 1;
   int day_offset = fibonacci1(current_score);
-  char * next_test_day = get_target_day(day_offset);
+  char next_test_day[11];
+  get_target_day(next_test_day, day_offset);
 
   sqlite3_prepare_v2(dbc, update_puzzle_statement, strlen(update_puzzle_statement) + 20, &update_puzzle_stmt, NULL);
 
@@ -557,7 +555,6 @@ void advance_puzzle_on_success(sqlite3* dbc, char * puzzle_id_arg) {
   }
 
   sqlite3_finalize(update_puzzle_stmt);
-  free(next_test_day);
 
 }
 
@@ -567,7 +564,8 @@ void advance_puzzle_on_success(sqlite3* dbc, char * puzzle_id_arg) {
 void log_result(sqlite3 *dbc, char * puzzle_id, char * success_arg) {
 
   sqlite3_stmt * insert_result_stmt;
-  char * today = get_today();
+  char today[11];
+  get_today(today);
 
   sqlite3_prepare_v2(dbc, insert_result_statement, strlen(insert_result_statement) + 20, &insert_result_stmt, NULL);
 
@@ -580,7 +578,6 @@ void log_result(sqlite3 *dbc, char * puzzle_id, char * success_arg) {
     printf("ERROR inserting new puzzle result: %s\n", sqlite3_errmsg(dbc));
   }
   sqlite3_finalize(insert_result_stmt);
-  free(today);
 }
 
 /* update_existing_puzzle takes a database connection, a string representing a
@@ -612,7 +609,8 @@ void create_new_puzzle_entry(sqlite3* dbc, char * puzzle_id, char * success_arg)
 
   sqlite3_stmt * insert_puzzle_stmt;
 
-  char * next_test_day = get_target_day(1);
+  char next_test_day[11];
+  get_target_day(next_test_day, 1);
 
   sqlite3_prepare_v2(dbc, insert_puzzle_statement, strlen(insert_puzzle_statement) + 20, &insert_puzzle_stmt, NULL);
 
@@ -627,7 +625,6 @@ void create_new_puzzle_entry(sqlite3* dbc, char * puzzle_id, char * success_arg)
   sqlite3_finalize(insert_puzzle_stmt);
 
   log_result(dbc, puzzle_id, success_arg);
-  free(next_test_day);
 
 }
 
@@ -703,9 +700,9 @@ void advance_current_puzzle(int days) {
 
   sqlite3 * dbc = get_db_conn();
   char * puzzle_id = current_puzzle(dbc);
-  char * target_day = get_target_day(days);
+  char target_day[11];
+  get_target_day(target_day, days);
   set_puzzle_date(dbc, puzzle_id, target_day);
-  free(target_day);
 
 }
 

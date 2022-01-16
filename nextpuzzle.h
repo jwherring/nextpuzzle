@@ -7,8 +7,8 @@ char * current_puzzle(sqlite3 *);
 char * get_puzzle_at_offset(sqlite3 *, int , char *);
 char * get_puzzle_id(char *);
 char * get_stats(sqlite3 *);
-char* get_target_day(int);
-char* get_today(void);
+void get_target_day(char *, int);
+void get_today(char*);
 int check_advance_arg(char *);
 int check_puzzle_exists(sqlite3 * , char *);
 int check_success_arg(char *);
@@ -40,4 +40,3 @@ void show_upcoming(void);
 void touch_dbfile(void);
 void update_existing_puzzle(sqlite3 *, char *, char *);
 void update_puzzle(char *, char *);
-
