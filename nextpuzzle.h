@@ -3,7 +3,7 @@
 #define MAX_SUCCESS 4
 #define MAX_INTERVAL 60
 
-char * current_puzzle(sqlite3 *);
+void current_puzzle(sqlite3 *, char *);
 char * get_puzzle_at_offset(sqlite3 *, int , char *);
 void get_puzzle_id(char *, char *);
 char * get_stats(sqlite3 *);

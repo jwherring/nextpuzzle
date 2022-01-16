@@ -268,7 +268,7 @@ int get_total_tests_for_day(sqlite3 *dbc, char * day) {
 
 /* current_puzzle takes a database connection and returns the puzzle_id of the
  * next  puzzle to be worked today */
-char * current_puzzle(sqlite3* dbc) {
+void current_puzzle(sqlite3* dbc, char * retval) {
 
   sqlite3_stmt * next_test_stmt;
   char today[11];
@@ -282,23 +282,23 @@ char * current_puzzle(sqlite3* dbc) {
 
   if(result == SQLITE_ERROR){
     printf("ERROR getting next test: %s\n", sqlite3_errmsg(dbc));
-    return "";
+    strcpy(retval, "\0"); 
+    return;
   }
 
   if(result == SQLITE_ROW) {
     const unsigned char* next_test_id = sqlite3_column_text(next_test_stmt,0);
 
 
-    char * retval;
     strcpy(retval, next_test_id);
     sqlite3_finalize(next_test_stmt);
-    return retval;
+    return;
   }
 
   // There are no more tests, return empty string.  Shouldn't actually get here
   // if you call get_total_tests_for_day and verify it's greater than 0 first
+  strcpy(retval, "\0"); 
   sqlite3_finalize(next_test_stmt);
-  return "";
 
 }
 
@@ -340,7 +340,8 @@ void get_next() {
   int tests_remaining = get_total_tests_for_day(dbc, today);
 
   if(tests_remaining > 0){
-    char * next_test_id = current_puzzle(dbc);
+    char next_test_id[50];
+    current_puzzle(dbc, next_test_id);
     if(strlen(next_test_id) == 0){
       printf("No more tests today!!!");
       return;
@@ -430,7 +431,6 @@ void record_batch_results(char * success_arg) {
     sprintf(s_arg, "%c", success_arg[i]);
     char * puzzle_id = get_puzzle_at_offset(dbc,i,today);
     strcpy(puzzle_id_arg, puzzle_id);
-    //printf("[%d] %s - %s\n", i, puzzle_id, s_arg);
     update_existing_puzzle(dbc, puzzle_id_arg, s_arg);
   }
 
@@ -664,7 +664,8 @@ void show_stats() {
 void mark_current_puzzle(char * success_arg) {
 
   sqlite3 * dbc = get_db_conn();
-  char * puzzle_id = current_puzzle(dbc);
+  char puzzle_id[50];
+  current_puzzle(dbc, puzzle_id);
   update_existing_puzzle(dbc, puzzle_id, success_arg);
   sqlite3_close(dbc);
 
@@ -699,7 +700,8 @@ void set_puzzle_date(sqlite3 * dbc, char * puzzle_id, char * target_day) {
 void advance_current_puzzle(int days) {
 
   sqlite3 * dbc = get_db_conn();
-  char * puzzle_id = current_puzzle(dbc);
+  char puzzle_id[50];
+  current_puzzle(dbc, puzzle_id);
   char target_day[11];
   get_target_day(target_day, days);
   set_puzzle_date(dbc, puzzle_id, target_day);
