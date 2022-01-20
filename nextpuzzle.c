@@ -783,6 +783,7 @@ void get_scores_for_day(sqlite3 * dbc, char * output, const char * day) {
 
   sqlite3_stmt * get_scores_for_day_stmt;
 
+  int i = 0;
   sqlite3_prepare_v2(dbc,get_scores_for_date,strlen(get_scores_for_date),&get_scores_for_day_stmt,NULL);
   sqlite3_bind_text(get_scores_for_day_stmt,1,day,strlen(day),NULL);
   while(sqlite3_step(get_scores_for_day_stmt) == SQLITE_ROW){
@@ -791,7 +792,12 @@ void get_scores_for_day(sqlite3 * dbc, char * output, const char * day) {
     int score = sqlite3_column_int(get_scores_for_day_stmt, 0);
     int count = sqlite3_column_int(get_scores_for_day_stmt, 1);
     sprintf(buf, fmt, score, count);
-    strcat(output, buf);
+    if(i == 0){
+      strcpy(output, buf);
+      i++;
+    } else {
+      strcat(output, buf);
+    }
   }
 }
 
