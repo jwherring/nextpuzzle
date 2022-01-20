@@ -29,6 +29,7 @@ char const *get_individual_puzzle_stats_statement = "select puzzle_id, score, (s
 char const *set_puzzle_date_statement = "update puzzles set next_test_date=:next_test_date where puzzle_id=:puzzle_id";
 char const *delete_puzzle_from_puzzles_statement = "delete from puzzles where puzzle_id=:puzzle_id";
 char const *delete_puzzle_from_results_statement = "delete from results where puzzle_id=:puzzle_id";
+char const *get_scores_for_date = "select score, count(score) from puzzles where next_test_date=:next_test_date group by score";
 char const *begin_transaction_statement = "begin transacton";
 char const *commit_transaction_statement = "commit";
 char const *rollback_transaction_statememt = "rollback";
@@ -777,6 +778,22 @@ void show_upcoming() {
 
 }
 
+void get_scores_for_day(sqlite3 * dbc, char * output, const char * day) {
+
+  sqlite3_stmt * get_scores_for_day_stmt;
+
+  sqlite3_prepare_v2(dbc,get_scores_for_date,strlen(get_scores_for_date),&get_scores_for_day_stmt,NULL);
+  sqlite3_bind_text(get_scores_for_day_stmt,1,day,strlen(day),NULL);
+  while(sqlite3_step(get_scores_for_day_stmt) == SQLITE_ROW){
+    const char * fmt = "%d - %d\n";
+    char buf[20];
+    int score = sqlite3_column_int(get_scores_for_day_stmt, 0);
+    int count = sqlite3_column_int(get_scores_for_day_stmt, 1);
+    sprintf(buf, fmt, score, count);
+    strcat(output, buf);
+  }
+}
+
 int main(int argc, char** argv) {
 
   char * command_arg;
@@ -839,6 +856,15 @@ int main(int argc, char** argv) {
   }
 
   success_arg = argv[2];
+
+  if(strcmp(command_arg, "daystats") == 0){
+    char output[100];
+    sqlite3 * dbc = get_db_conn();
+    get_scores_for_day(dbc, output, success_arg);
+    puts(output);
+    sqlite3_close(dbc);
+    return 0;
+  }
 
   if(strcmp(command_arg, "delete") == 0){
     delete_puzzle(success_arg);
