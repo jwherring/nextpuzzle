@@ -32,3 +32,4 @@ Otherwise build is simple - just use your favorite C compiler and link `libsqlit
 1. `future` - shows a breakdown of all the upcomming test dates with more than 0 puzzles and how many puzzles are slated to be worked each day
 1. `useage` - prints a useage message - more or less equivalent to this one
 1. `stats` - prints an overall success and failure rate
+1. `daystats <day>` - takes a day input in YYYY-MM-DD format and prints a breakdown of the scores and number of tests associated with each score for the day (if any)'

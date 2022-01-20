@@ -46,6 +46,7 @@ char const *useage =
   " \"next\" -- prints the next puzzle for the day, if available\n"
   " \"n <number>\" -- prints the next n puzzles for the day, if so many are available\n"
   " \"stats\" -- prints the overall success and failure rates\n"
+  " \"daystats <day>\" -- prints a breakdown of the score distribution for the tests scheduled for the day given\n"
   " \"useage\" -- prints this message\n"
   " if command is none of these it should be a puzzle number (or url) followed by the character 's' or 'f' indicating success or failure\n";
 
