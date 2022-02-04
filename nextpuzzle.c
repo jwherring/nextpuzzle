@@ -20,6 +20,7 @@ char const *insert_puzzle_statement = "insert into puzzles (puzzle_id, score, ne
 char const *insert_result_statement = "insert into results (puzzle_id, date, result) values (:puzzle_id, :date, :result)";
 char const *update_puzzle_statement = "update puzzles set score=:score, next_test_date=:next_test_date where puzzle_id=:puzzle_id";
 char const *get_next_test_statement = "select puzzle_id from puzzles where next_test_date<=:next_test_date";
+char const *get_next_test_date_for_puzzle_statement = "select next_test_date from puzzles where puzzle_id=:puzzle_id";
 char const *get_puzzle_at_offset_statement = "select puzzle_id from puzzles where next_test_date<=:next_test_date limit 1 offset :offset";
 char const *get_total_remaining_tests_statement = "select count(*) from puzzles where next_test_date<=:next_test_date";
 char const *get_upcomming_puzzles_count_by_date = "select next_test_date, count(*) as total from puzzles group by next_test_date";
@@ -496,6 +497,31 @@ void reset_puzzle_for_failure(sqlite3* dbc, char * puzzle_id_arg) {
 
 }
 
+/* get_next_test_day_for_puzzle takes a database connection and a string
+ * representing a puzzle id and saves the puzzle's next test date in the
+ * day_output buffer */
+void get_next_test_day_for_puzzle(sqlite3 * dbc, char * day_output, char * puzzle_id) {
+  sqlite3_stmt * get_next_test_date_stmt;
+  char puzzle_buffer[MAX_PUZZLE_LEN];
+  
+  strcpy(puzzle_buffer, puzzle_id);
+
+  int res = sqlite3_prepare_v2(dbc, get_next_test_date_for_puzzle_statement,strlen(get_next_test_date_for_puzzle_statement) + 20, &get_next_test_date_stmt, NULL);
+
+  int resii = sqlite3_bind_text(get_next_test_date_stmt, 1, puzzle_buffer, strlen(puzzle_buffer), NULL);
+
+  int result = sqlite3_step(get_next_test_date_stmt);
+
+  if(result == SQLITE_ERROR || result != SQLITE_ROW){
+    printf("ERROR getting next test date for puzzle: %s - %d - %s\n", sqlite3_errmsg(dbc), result, puzzle_buffer);
+    sqlite3_finalize(get_next_test_date_stmt);
+  }
+
+  const char * date = sqlite3_column_text(get_next_test_date_stmt,0);
+  strcpy(day_output, date);
+  sqlite3_finalize(get_next_test_date_stmt);
+}
+
 /* get_score_for_puzzle takes a database connection and a string representing a
  * puzzle id and returns the current score for that puzzle.  The score
  * represents an input to an algorithm to determine how many days in the future
@@ -597,7 +623,10 @@ void update_existing_puzzle(sqlite3* dbc, char * puzzle_id, char * success_arg) 
   } else {
     advance_puzzle_on_success(dbc, puzzle_id);
     log_result(dbc, puzzle_id, success_arg);
+    char next_test_day[11];
+    get_next_test_day_for_puzzle(dbc, next_test_day, puzzle_id);
     printf("Puzzle %s incremented for success\n", puzzle_id);
+    printf("NEXT TEST DATE: %s\n", next_test_day);
     get_stats(dbc, stats);
     puts(stats);
   } 

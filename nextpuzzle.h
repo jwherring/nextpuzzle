@@ -16,6 +16,7 @@ int check_success_arg(char *);
 int check_success_string_arg(char *);
 int database_file_exists(void);
 int fibonacci1(int);
+void get_next_test_day_for_puzzle(sqlite3*, char *, char *);
 int get_score_for_puzzle(sqlite3 *, char *);
 int get_total_tests_for_day(sqlite3 *, char *);
 int is_fail(char *);
