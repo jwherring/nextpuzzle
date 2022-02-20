@@ -348,10 +348,18 @@ void get_next() {
       return;
     }
 
+    int current_score = get_score_for_puzzle(dbc, next_test_id) + 1;
+    int day_offset = fibonacci1(current_score);
+    char next_test_day[11];
+    get_target_day(next_test_day, day_offset);
+
     char stats[STATS_LEN];
     get_stats(dbc, stats);
+
     printf("https://www.chess.com/puzzles/problem/%s\n", next_test_id);
+    printf("NEXT TEST ON SUCCESS: %s\n", next_test_day);
     printf("REMAINING: %d\n", tests_remaining - 1);
+
     puts(stats);
 
     return;
